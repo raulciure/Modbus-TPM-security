@@ -1,6 +1,6 @@
 import socket
-from tpm_security_onboard_nv import *
-from security_onboard_nv import *
+from tpm_security import *
+from security import *
 from sys import byteorder as sys_byteorder
 
 
