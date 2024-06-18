@@ -1,6 +1,6 @@
 from Crypto.PublicKey import RSA
-from tpm_security_onboard_nv import get_random, store_TPM_nv, delete_TPM_nv
-from security_onboard_nv import RSA_key_export
+from tpm_security import get_random, store_TPM_nv, delete_TPM_nv
+from security import RSA_key_export
 import time
 
 # Generates a new RSA key-pair using TPM RNG and stores it in TPM NV storage
