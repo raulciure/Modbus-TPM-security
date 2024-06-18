@@ -1,7 +1,7 @@
 import socket
 import threading
-from key_exchange_onboard_nv import key_exchange_routine, SOCKET_RECIEVE_INT_SIZE
-from security_onboard_nv import *
+from key_exchange import key_exchange_routine, SOCKET_RECIEVE_INT_SIZE
+from security import *
 
 
 # source is the client | dest is the server gateway
