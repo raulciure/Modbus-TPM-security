@@ -1,6 +1,6 @@
 # module containing functions used for security operations
 
-from tpm_security_onboard_nv import get_random, read_TPM_nv
+from tpm_security import get_random, read_TPM_nv
 from Crypto.Cipher import AES
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto.PublicKey import RSA
