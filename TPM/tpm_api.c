@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include "tpm_api.h"
 #include "tpm_operations.h"
 
@@ -44,7 +45,6 @@ int ImportRsaPublicKey()
 int RsaEncrypt(const uint8_t* keyBuffer, uint32_t keyBufferSize, const uint8_t* msg, int msgSize, uint8_t* out, int* outSize)
 {
     int rc;
-    //const uint8_t *localMsg = msg;
 
     rc = TPM_RsaEncrypt(NULL, keyBuffer, keyBufferSize, msg, msgSize, out, outSize);
     if(rc == SUCCESS_CODE) return SUCCESS_CODE;
@@ -74,6 +74,33 @@ int GetRandom(uint8_t* buffer, uint32_t len)
     int rc;
 
     rc = TPM_GetRandom(NULL, buffer, len);
+    if(rc == SUCCESS_CODE) return SUCCESS_CODE;
+    return FAIL_CODE;
+}
+
+int StoreNV(uint8_t* data, uint32_t dataSize)
+{
+    int rc;
+    
+    rc = TPM_StoreNV(NULL, data, dataSize);
+    if(rc == SUCCESS_CODE) return SUCCESS_CODE;
+    return FAIL_CODE;
+}
+
+int ReadNV(uint8_t* data, uint32_t* dataSize)
+{
+    int rc;
+
+    rc = TPM_ReadNV(NULL, data, dataSize);
+    if(rc == SUCCESS_CODE) return SUCCESS_CODE;
+    return FAIL_CODE;
+}
+
+int DeleteNV()
+{
+    int rc;
+
+    rc = TPM_DeleteNV(NULL);
     if(rc == SUCCESS_CODE) return SUCCESS_CODE;
     return FAIL_CODE;
 }

@@ -19,14 +19,12 @@ def RSA_keygen():
 
     exported_key = RSA_key_export(key, serialize_size=True)
 
-    print(exported_key)
-
     # store exported key in TPM NV storage
     status = store_TPM_nv(exported_key)
     if(status == True):
         print("Storage of the key successful!")
     else:
-        print("KEY STORAGE FAILED !!!")
+        print("!!! KEY STORAGE FAILED !!!")
 
 
 RSA_keygen()

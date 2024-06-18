@@ -1,31 +1,25 @@
 import socket
 import threading
-from key_exchange import key_exchange_routine, SOCKET_RECIEVE_INT_SIZE
-from security import *
+from key_exchange_onboard_nv import key_exchange_routine, SOCKET_RECIEVE_INT_SIZE
+from security_onboard_nv import *
 
 
 # source is the client gateway | dest is the server
 def forward_source_dest(source_socket, dest_socket, sym_key):
     while True:
-        # nonce = source_socket.recv(SOCKET_RECIEVE_SIZE)       # recieve nonce
-        # ciphertext = source_socket.recv(SOCKET_RECIEVE_SIZE)  # recieve ciphertext
-        # MAC_tag = source_socket.recv(SOCKET_RECIEVE_SIZE)     # recieve MAC tag
-        # if not nonce or not ciphertext or not MAC_tag:
-        #     break
         enc_data_size_bytes = source_socket.recv(SOCKET_RECIEVE_INT_SIZE)
+        if not enc_data_size_bytes:
+            break
+        
         enc_data_size = int.from_bytes(enc_data_size_bytes, 'big')
         enc_data = source_socket.recv(enc_data_size)
         if not enc_data:
             break
 
-        # decrypt data
-        # enc_data = (ciphertext, MAC_tag)
         try:
-            # data = AES_decrypt_and_verify(sym_key, nonce, enc_data)
             data = AES_decrypt_and_verify(sym_key, enc_data)
-            print(f"Recieved from destination: {data.decode('utf-8')}")
-
-            # dest_socket.send(len(data).to_bytes(SOCKET_RECIEVE_INT_SIZE, 'big'))
+            print("Received from destination: ", data)
+            
             dest_socket.send(data)
         except(ValueError):
             print("**** !!! Message tampered or key is incorrect !!! ****")
@@ -34,19 +28,14 @@ def forward_source_dest(source_socket, dest_socket, sym_key):
 # source is the client gateway | dest is the server
 def forward_dest_source(source_socket, dest_socket, sym_key):
     while True:
-        # data_size = dest_socket.recv(SOCKET_RECIEVE_INT_SIZE)
         data = dest_socket.recv(1024)
         if not data:
             break
-        print(f"Recieved from source: {data.decode('utf-8')}")
 
-        # encrypt data
-        # (nonce, enc_data) = AES_encrypt_and_digest(sym_key, data)
+        print("Received from source: ", data)
+
         enc_data = AES_encrypt_and_digest(sym_key, data)
 
-        # source_socket.send(nonce)       # send nonce
-        # source_socket.send(enc_data[0]) # send ciphertext
-        # source_socket.send(enc_data[1]) # send MAC tag
         source_socket.send(len(enc_data).to_bytes(SOCKET_RECIEVE_INT_SIZE, 'big')) # enc_data_size
         source_socket.send(enc_data)
 
@@ -63,13 +52,13 @@ def handle_transfer(source_socket, dest_socket, sym_key):
 
 
 def main(): 
-    host_ip = '192.168.1.2'
+    host_ip = '192.168.50.81'
     host_port = 502
 
-    source_ip = '192.168.1.1'
+    source_ip = '192.168.50.80'
     source_port = 502
 
-    dest_ip = '192.168.1.84'
+    dest_ip = '192.168.50.96'
     dest_port = 502
 
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -92,6 +81,8 @@ def main():
         # If sym_key generated successfully proceed with normal data handling
         if(sym_key != None):
             handle_transfer(source_socket, dest_socket, sym_key)
+        else:
+            print("Key exchange error")
 
         source_socket.close()
         dest_socket.close()

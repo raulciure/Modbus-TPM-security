@@ -1,6 +1,11 @@
 #include "wolftpm/tpm2_types.h" // include wolfTPM types definition for using byte type (as well as others)
 #include "wolftpm/tpm2_wrap.h"
 
+#define TPM_MAX_NV_INDEX_SIZE 1536
+#define TPM_DEFAULT_NV_INDEX 0x01800202
+#define MAX_NV_BUFFER_SIZE 768
+
+static const char nvAuthPassword[] = "Nv <<>> auth - password";
 
 int TPM_Keygen(void* userCtx, const char* outFile, byte* keyPubBuffer, word32* keyPubBufferSize); // generates key and outputs it to outfile as WOLFTPM2_KEYBLOB and public part to keyPubBuffer
 int TPM_Keygen2(void* userCtx, const char* outFile, byte* keyPubBuffer, word32* keyPubBufferSize, byte* keyPrivBuffer, word32* keyPrivBufferSize); // generates key and outputs it to outfile as WOLFTPM2_KEYBLOB and public & private parts to keyPubBuffer / keyPrivBuffer
@@ -24,3 +29,9 @@ int TPM_SetKeyBlobFromBuffer(WOLFTPM2_KEYBLOB* key, byte *buffer, word32 bufferS
 
 // Generate random number
 int TPM_GetRandom(void* userCtx, byte* buffer, word32 len);
+
+// Creates a new nvIndex and stores data at that location
+int TPM_StoreNV(void* userCtx, byte* data, word32 dataSize);
+int TPM_ReadNV(void* userCtx, byte* data, word32* dataSize);
+// Destroys nvIndex and its data
+int TPM_DeleteNV(void* userCtx);
