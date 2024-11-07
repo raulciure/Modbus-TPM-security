@@ -17,7 +17,7 @@ def RSA_public_key_exchange(gateway_socket : socket.socket):
     source_address = gateway_socket.getsockname()[0]
     dest_address = gateway_socket.getpeername()[0]
 
-    RSA_key_own = RSA_key_load()
+    RSA_key_own = RSA_key_load(OWN_KEY_NV_INDEX)
     print("RSA key imported")
     RSA_key_bytes_public_own = RSA_key_export(RSA_key_own.public_key())
     print("Extracted public key as bytes from own key")

@@ -1,13 +1,14 @@
 from Crypto.PublicKey import RSA
-from tpm_security import get_random, store_TPM_nv, delete_TPM_nv
+from tpm_security import get_random, store_TPM_nv, delete_TPM_nv, OWN_KEY_NV_INDEX
 from security import RSA_key_export
 import time
 
-# Generates a new RSA key-pair using TPM RNG and stores it in TPM NV storage
-def RSA_keygen():
+
+# Generates a new RSA key-pair using TPM RNG and stores it in TPM NV storage at index nv_index
+def RSA_keygen(nv_index):
     # delete old key from NV storage
     print("Deleting old key from NV......")
-    delete_TPM_nv()
+    delete_TPM_nv(nv_index)
     print("Old key deleted!")
 
     # generate new key
@@ -20,11 +21,12 @@ def RSA_keygen():
     exported_key = RSA_key_export(key, serialize_size=True)
 
     # store exported key in TPM NV storage
-    status = store_TPM_nv(exported_key)
+    status = store_TPM_nv(exported_key, nv_index)
     if(status == True):
         print("Storage of the key successful!")
     else:
         print("!!! KEY STORAGE FAILED !!!")
 
 
-RSA_keygen()
+if __name__ == "__main__":
+    RSA_keygen(OWN_KEY_NV_INDEX)

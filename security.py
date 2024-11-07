@@ -1,6 +1,6 @@
 # module containing functions used for security operations
 
-from tpm_security import get_random, read_TPM_nv
+from tpm_security import get_random, read_TPM_nv, OWN_KEY_NV_INDEX
 from Crypto.Cipher import AES
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto.PublicKey import RSA
@@ -10,7 +10,7 @@ from Crypto.Hash import SHA256
 from pickle import dumps, loads
 
 
-# generates a AES-256 key
+# generates an AES-256 key
 def AES_key_gen():
     key = get_random(32)
 
@@ -84,8 +84,8 @@ def RSA_decrypt_and_verify(dec_key, verif_key, enc_msg : bytes):
 
 
 # Converts DER formated key to RsaKey object
-def RSA_key_load():
-    serialized_key = RSA_key_read()
+def RSA_key_load(index : int):
+    serialized_key = RSA_key_read(index)
 
     (encoded_key_len, encoded_key) = loads(serialized_key)
     encoded_key = encoded_key[:encoded_key_len]
@@ -108,8 +108,8 @@ def RSA_key_export(key : RSA.RsaKey, serialize_size=False):
 
 
 # Reads binary encoded key from TPM NV storage
-def RSA_key_read():
-    encoded_key = read_TPM_nv()
+def RSA_key_read(index : int):
+    encoded_key = read_TPM_nv(index)
 
     if(encoded_key == None):
         print("Error reading NV key!")
