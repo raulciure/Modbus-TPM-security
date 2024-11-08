@@ -12,7 +12,7 @@ def RSA_key_exchange_client():
 
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.connect((dest_ip, dest_port))
-    print("[*] Established connection to server(destination): " + {(dest_ip, dest_port)})
+    print("[*] Established connection to server: " + {(dest_ip, dest_port)})
 
     # Exchange RSA public key
     RSA_public_key_exchange(server_socket)
