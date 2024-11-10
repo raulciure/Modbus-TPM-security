@@ -83,8 +83,17 @@ def RSA_decrypt_and_verify(dec_key, verif_key, enc_msg : bytes):
         raise
 
 
-# Converts DER formated key to RsaKey object
-def RSA_key_load(index : int):
+# Converts key from DER format to RsaKey object
+def RSA_key_load(serialized_key):
+    (encoded_key_len, encoded_key) = loads(serialized_key)
+    encoded_key = encoded_key[:encoded_key_len]
+
+    key = RSA.import_key(encoded_key, None)
+    return key
+
+
+# Reads key and converts it from DER format to RsaKey object
+def RSA_key_read_and_load(index : int):
     serialized_key = RSA_key_read(index)
 
     (encoded_key_len, encoded_key) = loads(serialized_key)

@@ -1,6 +1,6 @@
 import socket
-from tpm_security import read_TPM_nv, store_TPM_nv, OWN_KEY_NV_INDEX
-from security import RSA_key_load, RSA_key_export
+from tpm_security import store_TPM_nv, OWN_KEY_NV_INDEX
+from security import RSA_key_read_and_load, RSA_key_export
 from Crypto.PublicKey import RSA
 from Crypto.Hash import SHA256
 import csv
@@ -48,9 +48,9 @@ def RSA_public_key_exchange(conn_socket : socket):
     source_address = conn_socket.getsockname()[0]
     dest_address = conn_socket.getpeername()[0]
 
-    RSA_key_own = RSA_key_load(OWN_KEY_NV_INDEX)
+    RSA_key_own = RSA_key_read_and_load(OWN_KEY_NV_INDEX)
     print("RSA key imported")
-    RSA_key_bytes_public_own = RSA_key_export(RSA_key_own.public_key())
+    RSA_key_bytes_public_own = RSA_key_export(RSA_key_own.public_key(), serialize_size=True)
     print("Extracted public key as bytes from own key")
 
     # transfer the keys between devices
