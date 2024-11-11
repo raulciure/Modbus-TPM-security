@@ -1,9 +1,13 @@
 import socket
-from tpm_security import store_TPM_nv, OWN_KEY_NV_INDEX
-from security import RSA_key_read_and_load, RSA_key_export
-from Crypto.PublicKey import RSA
 from Crypto.Hash import SHA256
 import csv
+
+import sys
+sys.path.insert(1, "../")
+
+from tpm_security import store_TPM_nv, OWN_KEY_NV_INDEX
+from security import RSA_key_read_and_load, RSA_key_export, RSA_key_serialize
+
 
 SOCKET_RECEIVE_SIZE = 4096
 
@@ -29,8 +33,8 @@ def store_peer_RSA_public_key(peer_public_key_bytes : bytes):
         print("peers.csv not found. Creating file...")
 
     if found_flag == False:     # Public key is not already known
-        # Store DER formated peer_public_key in TPM NV memory at next available index
-        result = store_TPM_nv(peer_public_key_bytes, ID_counter)
+        # Store serialized DER formated peer_public_key in TPM NV memory at next available index
+        result = store_TPM_nv(RSA_key_serialize(peer_public_key_bytes), ID_counter)
         if result == True:
             print("Peer public key successfully stored in TPM NV memory!")
             # Store the key hash & ID in dictionary CSV list
@@ -50,7 +54,7 @@ def RSA_public_key_exchange(conn_socket : socket):
 
     RSA_key_own = RSA_key_read_and_load(OWN_KEY_NV_INDEX)
     print("RSA key imported")
-    RSA_key_bytes_public_own = RSA_key_export(RSA_key_own.public_key(), serialize_size=True)
+    RSA_key_bytes_public_own = RSA_key_export(RSA_key_own.public_key())
     print("Extracted public key as bytes from own key")
 
     # transfer the keys between devices

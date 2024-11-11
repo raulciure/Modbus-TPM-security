@@ -10,7 +10,7 @@ static const char nvAuthPassword[] = "Nv <<>> auth - password";
 // Generate random number
 int TPM_GetRandom(void* userCtx, byte* buffer, word32 len);
 
-// Creates a new nvIndex and stores data at that location
+// Creates a new nvIndex and stores data at that location.
 // indexOffset = the wanted NV_Index relative to TPM_DEFAULT_NV_INDEX
 int TPM_StoreNV(void* userCtx, byte* data, word32 dataSize, word32 indexOffset);
 

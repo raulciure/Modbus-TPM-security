@@ -7,7 +7,7 @@ MAX_NV_STORAGE_SIZE_BYTES = 1536
 
 OWN_KEY_NV_INDEX = 0
 
-TPM_API_PATH = "/home/raul/Desktop/Packets_security/tpm_api.so"
+TPM_API_PATH = "/home/raul/Desktop/Modbus-TCP-Security/TPM/tpm_api.so"
 
 tpm_api_library = ctypes.CDLL(TPM_API_PATH)
 

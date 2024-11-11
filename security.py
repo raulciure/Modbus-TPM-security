@@ -1,6 +1,6 @@
 # module containing functions used for security operations
 
-from tpm_security import get_random, read_TPM_nv, OWN_KEY_NV_INDEX
+from tpm_security import get_random, read_TPM_nv
 from Crypto.Cipher import AES
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto.PublicKey import RSA
@@ -84,43 +84,50 @@ def RSA_decrypt_and_verify(dec_key, verif_key, enc_msg : bytes):
 
 
 # Converts key from DER format to RsaKey object
-def RSA_key_load(serialized_key):
-    (encoded_key_len, encoded_key) = loads(serialized_key)
-    encoded_key = encoded_key[:encoded_key_len]
-
+def RSA_key_load(encoded_key):
     key = RSA.import_key(encoded_key, None)
     return key
 
 
 # Reads key and converts it from DER format to RsaKey object
 def RSA_key_read_and_load(index : int):
-    serialized_key = RSA_key_read(index)
-
-    (encoded_key_len, encoded_key) = loads(serialized_key)
-    encoded_key = encoded_key[:encoded_key_len]
+    encoded_key = RSA_key_read(index)
 
     key = RSA.import_key(encoded_key, None)
     return key
 
 
-# Export key to DER format wtih option to return serialized bytes of tuple containing size and the formated key
+# Serializes a DER encoded key into a tuple containing size and the encoded key
+def RSA_key_serialize(encoded_key : bytes):
+    encoded_key_len = len(encoded_key)
+    encoded_key_tuple = (encoded_key_len, encoded_key)
+    serialized_data = dumps(encoded_key_tuple)
+
+    return serialized_data
+
+
+# Export key to DER format wtih option to return serialized bytes of tuple containing size and the formated key (used for TPM NV storage)
 def RSA_key_export(key : RSA.RsaKey, serialize_size=False):
     exported_key = key.export_key(format='DER', passphrase=None, pkcs=8, protection='PBKDF2WithHMAC-SHA512AndAES256-CBC', randfunc=get_random)
 
     if(serialize_size == True):
-        exported_key_len = len(exported_key)
-        exported_key_tuple = (exported_key_len, exported_key)
-        serialized_data = dumps(exported_key_tuple)
-        return serialized_data
+        return RSA_key_serialize(exported_key)
     
     return exported_key
 
 
-# Reads binary encoded key from TPM NV storage
-def RSA_key_read(index : int):
+# Reads binary encoded key from TPM NV storage (in serialized form) & returns only the DER encoded RSA key (default) or the entire NV buffer raw_data, as provided by the TPM API
+def RSA_key_read(index : int, raw_data=False) -> bytes | None:
     encoded_key = read_TPM_nv(index)
 
     if(encoded_key == None):
         print("Error reading NV key!")
+        return None
+    
+    if(raw_data == True):
+        return encoded_key
 
-    return encoded_key
+    (encoded_key_len, encoded_key_trimmed) = loads(encoded_key)
+    encoded_key_trimmed = encoded_key_trimmed[:encoded_key_len]
+
+    return encoded_key_trimmed

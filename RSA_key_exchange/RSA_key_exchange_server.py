@@ -3,8 +3,7 @@ from RSA_key_exchange_common import RSA_public_key_exchange
 
 
 def RSA_key_exchange_server():
-    # host_ip = '192.168.50.81'
-    host_ip = socket.gethostbyname(socket.gethostname())
+    host_ip = '192.168.50.81'
     host_port = 502
 
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -13,14 +12,21 @@ def RSA_key_exchange_server():
 
     print(f"[*] Listening on {host_ip}:{host_port}")
 
-    while True:     # Process, in order, all the connections from clients
-        client_socket, client_address = server_socket.accept()
-        print("[*] Accepted connection from client: " + {client_address})
+    try:
+        while True:     # Process, in order, all the connections from clients
+            print("[*] Waiting for client connection...")
 
-        # Exchange RSA public key
-        RSA_public_key_exchange(client_socket)
+            client_socket, client_address = server_socket.accept()
+            print(f"[*] Accepted connection from client: {client_address}")
 
-        client_socket.close()
+            # Exchange RSA public key
+            RSA_public_key_exchange(client_socket)
+
+            client_socket.close()
+    except KeyboardInterrupt:
+        server_socket.close()
+        print("Program terminated by user")
+        exit()
 
     
 

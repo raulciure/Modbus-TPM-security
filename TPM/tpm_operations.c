@@ -5,7 +5,7 @@
 #include "wolftpm/tpm_io.h"
 #include "wolftpm/tpm_test.h"
 #include "wolftpm/tpm_test_keys.h"
-#include "wolftpm/tpm_operations.h"
+#include "tpm_operations.h"
 
 
 int TPM_GetRandom(void* userCtx, byte* buffer, word32 len)
@@ -81,7 +81,7 @@ int TPM_StoreNV(void* userCtx, byte* data, word32 dataSize, word32 indexOffset)
     if (rc != 0) goto exit;
 
     // Create index using
-    rc = wolfTPM2_NVCreateAuth(&dev, &parent, &nv, TPM_DEFAULT_NV_INDEX,
+    rc = wolfTPM2_NVCreateAuth(&dev, &parent, &nv, nvIndex,
             nvAttributes, TPM_MAX_NV_INDEX_SIZE, auth, authSz);
     if (rc != 0 && rc != TPM_RC_NV_DEFINED) goto exit;
 
