@@ -14,6 +14,7 @@ SOCKET_RECEIVE_SIZE = 4096
 
 def store_peer_RSA_public_key(peer_public_key_bytes : bytes):
     ID_counter = 1 # NV index starts from 1 for peer keys (host keys on index offset 0)
+    max_ID = 1
     found_flag = False
 
     key_hash = SHA256.new(peer_public_key_bytes)
@@ -25,6 +26,8 @@ def store_peer_RSA_public_key(peer_public_key_bytes : bytes):
             reader = csv.reader(peers_file, delimiter=":")
             for row in reader:
                 if row:
+                    if int(row[1]) > max_ID:    # Get max ID in file
+                        max_ID = int(row[1])
                     if row[0] == key_hash.hexdigest():
                         found_flag = True
                         break
@@ -33,15 +36,16 @@ def store_peer_RSA_public_key(peer_public_key_bytes : bytes):
         print("peers.csv not found. Creating file...")
 
     if found_flag == False:     # Public key is not already known
+        new_ID = max_ID + 1
         # Store serialized DER formated peer_public_key in TPM NV memory at next available index
-        result = store_TPM_nv(RSA_key_serialize(peer_public_key_bytes), ID_counter)
+        result = store_TPM_nv(RSA_key_serialize(peer_public_key_bytes), new_ID)
         if result == True:
             print("Peer public key successfully stored in TPM NV memory!")
             # Store the key hash & ID in dictionary CSV list
             with open("peers.csv", "a", newline="") as peers_file:
                 # Write new entry into peers_file
                 writer = csv.writer(peers_file, delimiter=":")
-                writer.writerow((key_hash.hexdigest(), ID_counter))
+                writer.writerow((key_hash.hexdigest(), new_ID))
         else:
             print("Error storing peer_public_key in TPM NV!")
     else:

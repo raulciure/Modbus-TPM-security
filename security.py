@@ -7,6 +7,8 @@ from Crypto.PublicKey import RSA
 from Crypto.Util.Padding import pad, unpad
 from Crypto.Signature import pss
 from Crypto.Hash import SHA256
+from Crypto.PublicKey import ECC
+from Crypto.Protocol import DH
 from pickle import dumps, loads
 
 
@@ -24,7 +26,6 @@ def AES_key_gen():
     if(key != None):
         return key
     else:
-        # print("Error generating AES key!")
         return None
 
 
@@ -131,3 +132,30 @@ def RSA_key_read(index : int, raw_data=False) -> bytes | None:
     encoded_key_trimmed = encoded_key_trimmed[:encoded_key_len]
 
     return encoded_key_trimmed
+
+
+# ECDHE / ECC functions
+
+# Generate an ECC key
+def ECC_key_gen() -> ECC.EccKey:
+    curve = "Curve25519"
+    key = ECC.generate(curve, get_random)
+
+    return key
+
+
+# Export ECC key to bytes
+def ECC_key_export(key : ECC.EccKey) -> bytes:
+    exported_key = key.export_key(format='raw', passphrase=None)
+
+    return exported_key
+
+
+# Create a common key based on both parties keys
+def ECDHE_key_agreement(own_key : ECC.EccKey, peer_key : ECC.EccKey) -> bytes:
+    def kdf(input):
+        return SHA256.new(input)
+
+    session_key = DH.key_agreement(eph_priv=own_key, eph_pub=peer_key, kdf=kdf)
+
+    return session_key.digest()

@@ -1,16 +1,13 @@
 import socket
-from tpm_security import *
+from tpm_security import OWN_KEY_NV_INDEX
 from security import *
-from sys import byteorder as sys_byteorder
+from RSA_auth import auth_RSA_public_key
 
 
-DEFAULT_SOCKET_RECIEVE_SIZE = 2048
-SOCKET_RECIEVE_INT_SIZE = 4
-
-RNG_ERROR_CODE = b'00000000'
+SOCKET_RECIEVE_SIZE = 4096
 
 
-# Exchange keys between the two devices
+# Exchanges keys between the two devices
 # returns host key and peer public key
 def RSA_public_key_exchange(gateway_socket : socket.socket):
     # get IP addresses of devices
@@ -25,141 +22,78 @@ def RSA_public_key_exchange(gateway_socket : socket.socket):
     # transfer the keys between gateways
     if(source_address <= dest_address):  # source sends the key firsts
         # source sends its public key to dest
-        gateway_socket.send(len(RSA_key_bytes_public_own).to_bytes(SOCKET_RECIEVE_INT_SIZE, 'big'))
         gateway_socket.send(RSA_key_bytes_public_own)
         print("Sent \"RSA_key_bytes_public_own\"")
         # then recieves the public key from dest
-        RSA_key_bytes_public_peer_size_bytes = gateway_socket.recv(SOCKET_RECIEVE_INT_SIZE)
-        RSA_key_bytes_public_peer_size = int.from_bytes(RSA_key_bytes_public_peer_size_bytes, 'big')
-        RSA_key_bytes_public_peer = gateway_socket.recv(RSA_key_bytes_public_peer_size)
+        RSA_key_bytes_public_peer = gateway_socket.recv(SOCKET_RECIEVE_SIZE)
         print("Recieved \"RSA_key_bytes_public_peer\"")
 
     else:   # dest sends the key first
         # source recieves the public key from dest
-        RSA_key_bytes_public_peer_size_bytes = gateway_socket.recv(SOCKET_RECIEVE_INT_SIZE)
-        RSA_key_bytes_public_peer_size = int.from_bytes(RSA_key_bytes_public_peer_size_bytes, 'big')
-        RSA_key_bytes_public_peer = gateway_socket.recv(RSA_key_bytes_public_peer_size)
+        RSA_key_bytes_public_peer = gateway_socket.recv(SOCKET_RECIEVE_SIZE)
         print("Recieved \"RSA_key_bytes_public_peer\"")
         # then sends its public key to dest
-        gateway_socket.send(len(RSA_key_bytes_public_own).to_bytes(SOCKET_RECIEVE_INT_SIZE, 'big'))
         gateway_socket.send(RSA_key_bytes_public_own)
         print("Sent RSA_key_bytes_public_own")
 
-    RSA_key_public_peer = RSA.import_key(RSA_key_bytes_public_peer)
-    print("Imported \"RSA_key_public_peer\" from \"RSA_key_bytes_public_peer\"")
+    # VERIFY if RSA_key_public_peer here is known by host (is authorised)
+    if auth_RSA_public_key(RSA_key_bytes_public_peer) == True:  # Key is authorized
+        RSA_key_public_peer = RSA.import_key(RSA_key_bytes_public_peer)
+        print("Imported \"RSA_key_public_peer\" from \"RSA_key_bytes_public_peer\"")
+        return (RSA_key_own, RSA_key_public_peer)
+    else:
+        print("Peer public key is NOT authorized!. Stopping key exchange protocol.")
+        return None
+    
 
-    return (RSA_key_own, RSA_key_public_peer)
-
-
-def random_number_exchange(gateway_socket : socket.socket):
-    RANDOM_NUM_SIZE = 4
-
+# Exchanges public ECC keys (signed with RSA) between devices
+# returns established shared secret
+def DH_key_exchange(gateway_socket : socket.socket, own_RSA_key : RSA.RsaKey, peer_RSA_public_key : RSA.RsaKey):
     # get IP addresses of devices
     source_address = gateway_socket.getsockname()[0]
     dest_address = gateway_socket.getpeername()[0]
 
-    # use RNG to determine who generates the key generated with TPM
-    random_num_source = get_random(RANDOM_NUM_SIZE)
-    if(random_num_source == None):  # if RNG failed set RNG_ERROR_CODE
-        random_num_source = RNG_ERROR_CODE
-    print("Generated random number for transfer")
+    # Generate ephemeral ECC key
+    ECC_key_own =  ECC_key_gen()
+    print("ECC key generated!")
+    ECC_key_own_public_bytes = ECC_key_export(ECC_key_own.public_key())
 
-    if(source_address <= dest_address):     # source sends the number first
-        gateway_socket.send(random_num_source)
-        print("Sent own random number")
-        random_num_dest = gateway_socket.recv(RANDOM_NUM_SIZE)
-        print("Recieved peer random number")
-    else:                                   # dest sends the number first
-        random_num_dest = gateway_socket.recv(RANDOM_NUM_SIZE)
-        print("Recieved peer random number")
-        gateway_socket.send(random_num_source)
-        print("Sent own random number")
+    ECC_key_own_public_bytes_enc_signed = RSA_encrypt_and_sign(peer_RSA_public_key, own_RSA_key, ECC_key_own_public_bytes)
 
-    return (random_num_source, random_num_dest)
+    # transfer the keys between gateways
+    if(source_address <= dest_address):  # source sends the key firsts
+        # source sends its public key to dest
+        gateway_socket.send(ECC_key_own_public_bytes_enc_signed)
+        print("Sent \"ECC_key_own_public_bytes\"")
+        # then recieves the public key from dest
+        ECC_key_peer_public_bytes_enc_signed = gateway_socket.recv(SOCKET_RECIEVE_SIZE)
+        print("Recieved \"ECC_key_peer_public_bytes\"")
+    else:   # dest sends the key first
+        # source recieves the public key from dest
+        ECC_key_peer_public_bytes_enc_signed = gateway_socket.recv(SOCKET_RECIEVE_SIZE)
+        print("Recieved \"ECC_key_peer_public_bytes\"")
+        # then sends its public key to dest
+        gateway_socket.send(ECC_key_own_public_bytes)
+        print("Sent \"ECC_key_own_public_bytes\"")
 
+    try:
+        ECC_key_peer_public_bytes = RSA_decrypt_and_verify(own_RSA_key, peer_RSA_public_key, ECC_key_peer_public_bytes_enc_signed)
+    except ValueError:
+        print("**** !!! RSA signature is not authentic !!! ****")
+        return None
 
-def symmetric_key_exchange(gateway_socket : socket.socket, own_RSA_key : RSA.RsaKey, peer_RSA_public_key : RSA.RsaKey):
-    # get IP addresses of devices
-    source_address = gateway_socket.getsockname()[0]
-    dest_address = gateway_socket.getpeername()[0]
+    ECC_key_peer_public = ECC.import_key(ECC_key_peer_public_bytes)
+    print("Imported \"ECC_key_peer_public\"")
 
-    # exchange random numbers
-    (random_num_source, random_num_dest) = random_number_exchange(gateway_socket)
-    print("Random numbers exchange successful!")
+    shared_key = ECDHE_key_agreement(ECC_key_own, ECC_key_peer_public)
+    print("Established shared key")
 
-    if(random_num_source != RNG_ERROR_CODE and random_num_dest != RNG_ERROR_CODE): # Very fine random numbers, on both sides!
-        if(int.from_bytes(random_num_source, sys_byteorder) <= int.from_bytes(random_num_dest, sys_byteorder)):     # source generates the key
-            # generate symmetric key
-            sym_key = AES_key_gen()
-            print("AES key generation successful!")
-
-            if(sym_key != None):     # encrypt symmetric key with RSA
-                sym_key_enc = RSA_encrypt_and_sign(peer_RSA_public_key, own_RSA_key, sym_key)
-                print("AES key encrypted with RSA")
-                gateway_socket.send(len(sym_key_enc).to_bytes(SOCKET_RECIEVE_INT_SIZE, 'big')) # send encrypted symmetric key size
-                gateway_socket.send(sym_key_enc) # send encrypted symmetric key
-                print("AES encrypted key sent")
-            else:
-                print("*** Host unable to generate AES key")
-                return None
-
-        else:   # source recieves the key
-            # recieve encrypted symmetric key
-            sym_key_enc_size_bytes = gateway_socket.recv(SOCKET_RECIEVE_INT_SIZE)
-            sym_key_enc_size = int.from_bytes(sym_key_enc_size_bytes, 'big')
-            sym_key_enc = gateway_socket.recv(sym_key_enc_size)
-            print("AES encrypted key recieved")
-            # decrypt symmetric key with RSA
-            try:
-                sym_key = RSA_decrypt_and_verify(own_RSA_key, peer_RSA_public_key, sym_key_enc)
-                print("AES key decrypted with RSA")
-            except (ValueError):
-                print("**** !!! Signature is not authentic !!! ****")
-                sym_key = None
-
-    else:   # They rigged the RNGs, they're trying to destroy our program! | --> use backup with smaller ip address
-        if(random_num_source == RNG_ERROR_CODE):
-            print("*** Host unable to generate random number using TPM")
-        elif(random_num_dest == RNG_ERROR_CODE):
-            print("*** Peer unable to generate random number using TPM")
-
-        print("** Using backup exchange procedure (IP address comparison)")
-
-        if(source_address <= dest_address):     # source generates the key
-            # generate symmetric key
-            sym_key = AES_key_gen()
-            print("AES key generation successful!")
-
-            if(sym_key != None):     # encrypt symmetric key with RSA
-                sym_key_enc = RSA_encrypt_and_sign(peer_RSA_public_key, own_RSA_key, sym_key)
-                print("AES key encrypted with RSA")
-                gateway_socket.send(len(sym_key_enc).to_bytes(SOCKET_RECIEVE_INT_SIZE, 'big')) # send encrypted symmetric key size
-                gateway_socket.send(sym_key_enc) # send encrypted symmetric key
-                print("AES encrypted key sent")
-            else:
-                print("*** Host unable to generate AES key")
-                return None
-
-        else:   # source recieves the key
-            # recieve encrypted symmetric key
-            sym_key_enc_size_bytes = gateway_socket.recv(SOCKET_RECIEVE_INT_SIZE)
-            sym_key_enc_size = int.from_bytes(sym_key_enc_size_bytes, 'big')
-            sym_key_enc = gateway_socket.recv(sym_key_enc_size)
-            print("AES encrypted key recieved")
-            # decrypt symmetric key with RSA
-            try:
-                sym_key = RSA_decrypt_and_verify(own_RSA_key, peer_RSA_public_key, sym_key_enc)
-                print("AES key decrypted with RSA")
-            except (ValueError):
-                print("**** !!! Signature is not authentic !!! ****")
-                sym_key = None
-
-    return sym_key
+    return shared_key
 
 
 def key_exchange_routine(gateway_socket : socket.socket):
     result = RSA_public_key_exchange(gateway_socket)
     if(result != None):
-        return symmetric_key_exchange(gateway_socket, result[0], result[1])
+        return DH_key_exchange(gateway_socket, result[0], result[1])
     else:
         return None
