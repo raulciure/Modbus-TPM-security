@@ -70,10 +70,10 @@ def RSA_encrypt_and_sign(enc_key, sign_key, msg : bytes):
 
 # function that decrypts message using RSA - PKCS1_OAEP with a private key and verifies encrypted message using PKCS1_PSS with a public key
 # returns decrypted message or raises ValueError exception if signature can't be verified
-def RSA_decrypt_and_verify(dec_key, verif_key, enc_msg : bytes):
+def RSA_decrypt_and_verify(dec_key, verif_key, enc_msg_encoded : bytes):
     cipher = PKCS1_OAEP.new(dec_key)
 
-    (enc_msg, signature) = loads(enc_msg)
+    (enc_msg, signature) = loads(enc_msg_encoded)
 
     h = SHA256.new(enc_msg)
     verifier = pss.new(verif_key)
@@ -138,17 +138,20 @@ def RSA_key_read(index : int, raw_data=False) -> bytes | None:
 
 # Generate an ECC key
 def ECC_key_gen() -> ECC.EccKey:
-    curve = "Curve25519"
-    key = ECC.generate(curve, get_random)
-
+    ECC_CURVE = "Curve25519"    # X25519 curve
+    key = ECC.generate(curve=ECC_CURVE, randfunc=get_random)
     return key
 
 
 # Export ECC key to bytes
 def ECC_key_export(key : ECC.EccKey) -> bytes:
-    exported_key = key.export_key(format='raw', passphrase=None)
-
+    exported_key = key.export_key(format='raw')
     return exported_key
+
+
+def ECC_public_key_import(encoded_key : bytes) -> ECC.EccKey:
+    key = DH.import_x25519_public_key(encoded_key)
+    return key
 
 
 # Create a common key based on both parties keys

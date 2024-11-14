@@ -1,18 +1,13 @@
 import socket
 import threading
-from key_exchange import key_exchange_routine, SOCKET_RECIEVE_INT_SIZE
+from key_exchange import key_exchange_routine, SOCKET_RECEIVE_SIZE
 from security import *
 
 
 # source is the client gateway | dest is the server
 def forward_source_dest(source_socket, dest_socket, sym_key):
     while True:
-        enc_data_size_bytes = source_socket.recv(SOCKET_RECIEVE_INT_SIZE)
-        if not enc_data_size_bytes:
-            break
-        
-        enc_data_size = int.from_bytes(enc_data_size_bytes, 'big')
-        enc_data = source_socket.recv(enc_data_size)
+        enc_data = source_socket.recv(SOCKET_RECEIVE_SIZE)
         if not enc_data:
             break
 
@@ -28,15 +23,14 @@ def forward_source_dest(source_socket, dest_socket, sym_key):
 # source is the client gateway | dest is the server
 def forward_dest_source(source_socket, dest_socket, sym_key):
     while True:
-        data = dest_socket.recv(1024)
+        data = dest_socket.recv(SOCKET_RECEIVE_SIZE)
         if not data:
             break
 
         print("Received from source: ", data)
 
         enc_data = AES_encrypt_and_digest(sym_key, data)
-
-        source_socket.send(len(enc_data).to_bytes(SOCKET_RECIEVE_INT_SIZE, 'big')) # enc_data_size
+        
         source_socket.send(enc_data)
 
 
