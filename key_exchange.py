@@ -2,7 +2,6 @@ import socket
 from tpm_security import OWN_KEY_NV_INDEX
 from security import *
 from RSA_auth import auth_RSA_public_key
-from sys import byteorder as sys_byteorder
 
 
 SOCKET_RECEIVE_SIZE = 4096
@@ -24,23 +23,25 @@ def RSA_public_key_exchange(gateway_socket : socket.socket):
     # transfer the keys between gateways
     if(source_address <= dest_address):  # source sends the key firsts
         # source sends its public key to dest
-        gateway_socket.send(len(RSA_key_bytes_public_own).to_bytes(SOCKET_INT_SIZE, 'big'))
+            # gateway_socket.send(len(RSA_key_bytes_public_own).to_bytes(SOCKET_INT_SIZE, 'big'))
         gateway_socket.send(RSA_key_bytes_public_own)
         print("Sent \"RSA_key_bytes_public_own\"")
         # then recieves the public key from dest
-        RSA_key_bytes_public_peer_size_bytes = gateway_socket.recv(SOCKET_INT_SIZE)
-        RSA_key_bytes_public_peer_size = int.from_bytes(RSA_key_bytes_public_peer_size_bytes, 'big')
-        RSA_key_bytes_public_peer = gateway_socket.recv(RSA_key_bytes_public_peer_size)
+            # RSA_key_bytes_public_peer_size_bytes = gateway_socket.recv(SOCKET_INT_SIZE)
+            # RSA_key_bytes_public_peer_size = int.from_bytes(RSA_key_bytes_public_peer_size_bytes, 'big')
+            # RSA_key_bytes_public_peer = gateway_socket.recv(RSA_key_bytes_public_peer_size)
+        RSA_key_bytes_public_peer = gateway_socket.recv(SOCKET_RECEIVE_SIZE)
         print("Recieved \"RSA_key_bytes_public_peer\"")
 
     else:   # dest sends the key first
         # source recieves the public key from dest
-        RSA_key_bytes_public_peer_size_bytes = gateway_socket.recv(SOCKET_INT_SIZE)
-        RSA_key_bytes_public_peer_size = int.from_bytes(RSA_key_bytes_public_peer_size_bytes, 'big')
-        RSA_key_bytes_public_peer = gateway_socket.recv(RSA_key_bytes_public_peer_size)
+            # RSA_key_bytes_public_peer_size_bytes = gateway_socket.recv(SOCKET_INT_SIZE)
+            # RSA_key_bytes_public_peer_size = int.from_bytes(RSA_key_bytes_public_peer_size_bytes, 'big')
+            # RSA_key_bytes_public_peer = gateway_socket.recv(RSA_key_bytes_public_peer_size)
+        RSA_key_bytes_public_peer = gateway_socket.recv(SOCKET_RECEIVE_SIZE)
         print("Recieved \"RSA_key_bytes_public_peer\"")
         # then sends its public key to dest
-        gateway_socket.send(len(RSA_key_bytes_public_own).to_bytes(SOCKET_INT_SIZE, 'big'))
+            # gateway_socket.send(len(RSA_key_bytes_public_own).to_bytes(SOCKET_INT_SIZE, 'big'))
         gateway_socket.send(RSA_key_bytes_public_own)
         print("Sent RSA_key_bytes_public_own")
 
@@ -72,23 +73,25 @@ def DH_key_exchange(gateway_socket : socket.socket, own_RSA_key : RSA.RsaKey, pe
     # transfer the keys between gateways
     if(source_address <= dest_address):  # source sends the key firsts
         # source sends its public key to dest
-        gateway_socket.send(len(ECC_key_own_public_bytes_enc_signed).to_bytes(SOCKET_INT_SIZE, 'big'))
+            # gateway_socket.send(len(ECC_key_own_public_bytes_enc_signed).to_bytes(SOCKET_INT_SIZE, 'big'))
         gateway_socket.send(ECC_key_own_public_bytes_enc_signed)
         print("Sent \"ECC_key_own_public_bytes_enc_signed\"")
         # then recieves the public key from dest
-        ECC_key_peer_public_bytes_enc_signed_size_bytes = gateway_socket.recv(SOCKET_INT_SIZE)
-        ECC_key_peer_public_bytes_enc_signed_size = int.from_bytes(ECC_key_peer_public_bytes_enc_signed_size_bytes, 'big')
-        ECC_key_peer_public_bytes_enc_signed = gateway_socket.recv(ECC_key_peer_public_bytes_enc_signed_size)
+            # ECC_key_peer_public_bytes_enc_signed_size_bytes = gateway_socket.recv(SOCKET_INT_SIZE)
+            # ECC_key_peer_public_bytes_enc_signed_size = int.from_bytes(ECC_key_peer_public_bytes_enc_signed_size_bytes, 'big')
+            # ECC_key_peer_public_bytes_enc_signed = gateway_socket.recv(ECC_key_peer_public_bytes_enc_signed_size)
+        ECC_key_peer_public_bytes_enc_signed = gateway_socket.recv(SOCKET_RECEIVE_SIZE)
         print("Recieved \"ECC_key_peer_public_bytes_enc_signed\"")
     else:   # dest sends the key first
         # source recieves the public key from dest
-        ECC_key_peer_public_bytes_enc_signed_size_bytes = gateway_socket.recv(SOCKET_INT_SIZE)
-        ECC_key_peer_public_bytes_enc_signed_size = int.from_bytes(ECC_key_peer_public_bytes_enc_signed_size_bytes, 'big')
-        ECC_key_peer_public_bytes_enc_signed = gateway_socket.recv(ECC_key_peer_public_bytes_enc_signed_size)
+            # ECC_key_peer_public_bytes_enc_signed_size_bytes = gateway_socket.recv(SOCKET_INT_SIZE)
+            # ECC_key_peer_public_bytes_enc_signed_size = int.from_bytes(ECC_key_peer_public_bytes_enc_signed_size_bytes, 'big')
+            # ECC_key_peer_public_bytes_enc_signed = gateway_socket.recv(ECC_key_peer_public_bytes_enc_signed_size)
+        ECC_key_peer_public_bytes_enc_signed = gateway_socket.recv(SOCKET_RECEIVE_SIZE)
         print("Recieved \"ECC_key_peer_public_bytes_enc_signed\"")
         # then sends its public key to dest
-        gateway_socket.send(len(ECC_key_own_public_bytes_enc_signed).to_bytes(SOCKET_INT_SIZE, 'big'))
-        gateway_socket.send(ECC_key_own_public_bytes)
+            # gateway_socket.send(len(ECC_key_own_public_bytes_enc_signed).to_bytes(SOCKET_INT_SIZE, 'big'))
+        gateway_socket.send(ECC_key_own_public_bytes_enc_signed)
         print("Sent \"ECC_key_own_public_bytes_enc_signed\"")
 
     try:
