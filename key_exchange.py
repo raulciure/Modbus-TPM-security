@@ -68,34 +68,34 @@ def DH_key_exchange(gateway_socket : socket.socket, own_RSA_key : RSA.RsaKey, pe
     print("ECC key generated!")
     ECC_key_own_public_bytes = ECC_key_export(ECC_key_own.public_key())
 
-    ECC_key_own_public_bytes_enc_signed = RSA_encrypt_and_sign(peer_RSA_public_key, own_RSA_key, ECC_key_own_public_bytes)
+    ECC_key_own_public_bytes_signed = RSA_sign(own_RSA_key, ECC_key_own_public_bytes)
 
     # transfer the keys between gateways
     if(source_address <= dest_address):  # source sends the key firsts
         # source sends its public key to dest
-            # gateway_socket.send(len(ECC_key_own_public_bytes_enc_signed).to_bytes(SOCKET_INT_SIZE, 'big'))
-        gateway_socket.send(ECC_key_own_public_bytes_enc_signed)
-        print("Sent \"ECC_key_own_public_bytes_enc_signed\"")
+            # gateway_socket.send(len(ECC_key_own_public_bytes_signed).to_bytes(SOCKET_INT_SIZE, 'big'))
+        gateway_socket.send(ECC_key_own_public_bytes_signed)
+        print("Sent \"ECC_key_own_public_bytes_signed\"")
         # then recieves the public key from dest
-            # ECC_key_peer_public_bytes_enc_signed_size_bytes = gateway_socket.recv(SOCKET_INT_SIZE)
-            # ECC_key_peer_public_bytes_enc_signed_size = int.from_bytes(ECC_key_peer_public_bytes_enc_signed_size_bytes, 'big')
-            # ECC_key_peer_public_bytes_enc_signed = gateway_socket.recv(ECC_key_peer_public_bytes_enc_signed_size)
-        ECC_key_peer_public_bytes_enc_signed = gateway_socket.recv(SOCKET_RECEIVE_SIZE)
-        print("Recieved \"ECC_key_peer_public_bytes_enc_signed\"")
+            # ECC_key_peer_public_bytes_signed_size_bytes = gateway_socket.recv(SOCKET_INT_SIZE)
+            # ECC_key_peer_public_bytes_signed_size = int.from_bytes(ECC_key_peer_public_bytes_signed_size_bytes, 'big')
+            # ECC_key_peer_public_bytes_signed = gateway_socket.recv(ECC_key_peer_public_bytes_signed_size)
+        ECC_key_peer_public_bytes_signed = gateway_socket.recv(SOCKET_RECEIVE_SIZE)
+        print("Recieved \"ECC_key_peer_public_bytes_signed\"")
     else:   # dest sends the key first
         # source recieves the public key from dest
-            # ECC_key_peer_public_bytes_enc_signed_size_bytes = gateway_socket.recv(SOCKET_INT_SIZE)
-            # ECC_key_peer_public_bytes_enc_signed_size = int.from_bytes(ECC_key_peer_public_bytes_enc_signed_size_bytes, 'big')
-            # ECC_key_peer_public_bytes_enc_signed = gateway_socket.recv(ECC_key_peer_public_bytes_enc_signed_size)
-        ECC_key_peer_public_bytes_enc_signed = gateway_socket.recv(SOCKET_RECEIVE_SIZE)
-        print("Recieved \"ECC_key_peer_public_bytes_enc_signed\"")
+            # ECC_key_peer_public_bytes_signed_size_bytes = gateway_socket.recv(SOCKET_INT_SIZE)
+            # ECC_key_peer_public_bytes_signed_size = int.from_bytes(ECC_key_peer_public_bytes_signed_size_bytes, 'big')
+            # ECC_key_peer_public_bytes_signed = gateway_socket.recv(ECC_key_peer_public_bytes_signed_size)
+        ECC_key_peer_public_bytes_signed = gateway_socket.recv(SOCKET_RECEIVE_SIZE)
+        print("Recieved \"ECC_key_peer_public_bytes_signed\"")
         # then sends its public key to dest
-            # gateway_socket.send(len(ECC_key_own_public_bytes_enc_signed).to_bytes(SOCKET_INT_SIZE, 'big'))
-        gateway_socket.send(ECC_key_own_public_bytes_enc_signed)
-        print("Sent \"ECC_key_own_public_bytes_enc_signed\"")
+            # gateway_socket.send(len(ECC_key_own_public_bytes_signed).to_bytes(SOCKET_INT_SIZE, 'big'))
+        gateway_socket.send(ECC_key_own_public_bytes_signed)
+        print("Sent \"ECC_key_own_public_bytes_signed\"")
 
     try:
-        ECC_key_peer_public_bytes = RSA_decrypt_and_verify(own_RSA_key, peer_RSA_public_key, ECC_key_peer_public_bytes_enc_signed)
+        ECC_key_peer_public_bytes = RSA_verify(peer_RSA_public_key, ECC_key_peer_public_bytes_signed)
     except ValueError:
         print("**** !!! RSA signature is not authentic !!! ****")
         return None

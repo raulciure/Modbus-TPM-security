@@ -84,6 +84,29 @@ def RSA_decrypt_and_verify(dec_key, verif_key, enc_msg_encoded : bytes):
         raise
 
 
+# Sign message with RSA private key using PKCS1_PSS
+# Return: serialized tuple of message and signature
+def RSA_sign(sign_key : RSA.RsaKey, msg : bytes):
+    h = SHA256.new(msg)
+    signature = pss.new(sign_key, rand_func=get_random).sign(h)
+
+    return dumps((msg, signature))
+
+
+# Verfy message signature using PKCS1_PSS with RSA public key
+# Return: authenticated message
+def RSA_verify(verif_key : RSA.RsaKey, signed_message_encoded : bytes):
+    (msg, signature) = loads(signed_message_encoded)
+
+    h = SHA256.new(msg)
+    verifier = pss.new(verif_key, rand_func=get_random)
+    try:
+        verifier.verify(h, signature)
+        return msg
+    except (ValueError):
+        raise
+
+
 # Converts key from DER format to RsaKey object
 def RSA_key_load(encoded_key):
     key = RSA.import_key(encoded_key, None)
