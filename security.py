@@ -10,6 +10,7 @@ from Crypto.Hash import SHA256
 from Crypto.PublicKey import ECC
 from Crypto.Protocol import DH
 from pickle import dumps, loads
+from time import time
 
 
 # generates an AES-256 key
@@ -35,9 +36,12 @@ def AES_encrypt_and_digest(key : bytes, msg : bytes):
     cipher = AES.new(key, AES.MODE_GCM)
     nonce = cipher.nonce
 
+    timestamp = int(time()).to_bytes(4)
+    cipher.update(timestamp)
+
     enc_tuple = cipher.encrypt_and_digest(pad(msg, AES.block_size))
 
-    enc_data = dumps((nonce, enc_tuple))
+    enc_data = dumps((nonce, timestamp, enc_tuple))
 
     return enc_data
 
@@ -45,12 +49,20 @@ def AES_encrypt_and_digest(key : bytes, msg : bytes):
 # function that decrypts & authenticates message using AES-GCM AEAD
 # returns original message
 def AES_decrypt_and_verify(key : bytes, enc_data : bytes):
-    (nonce, (ciphertext, MAC_tag)) = loads(enc_data)
+    TIMESTAMP_TOLERANCE = 1     # Tolerance for timestamp deviation (in seconds)
+
+    (nonce, timestamp_msg, (ciphertext, MAC_tag)) = loads(enc_data)
 
     cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
 
+    timestamp_now = int(time())
+
     try:
+        cipher.update(timestamp_msg)
         msg = unpad(cipher.decrypt_and_verify(ciphertext, MAC_tag), AES.block_size)
+        if(timestamp_now - int.from_bytes(timestamp_msg) >= TIMESTAMP_TOLERANCE):    # Verify timestamp
+            print("!!! Timestamp is different !!!")
+            raise ValueError
         return msg
     except(ValueError):
         raise

@@ -100,6 +100,7 @@ def DH_key_exchange(gateway_socket : socket.socket, own_RSA_key : RSA.RsaKey, pe
         print("**** !!! RSA signature is not authentic !!! ****")
         return None
 
+    print("RSA signature is authentic")
     ECC_key_peer_public = ECC_public_key_import(ECC_key_peer_public_bytes)
     print("Imported \"ECC_key_peer_public\"")
 
