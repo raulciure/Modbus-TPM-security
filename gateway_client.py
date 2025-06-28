@@ -1,14 +1,17 @@
 import socket
 import threading
-import Perf_test.latency_test
 from key_exchange import key_exchange_routine, SOCKET_RECEIVE_SIZE
 from security import *
 from Perf_test import latency_test
+from time import sleep
+
+
+exit_flag = False
 
 
 # source is the client | dest is the server gateway
 def forward_source_dest(source_socket, dest_socket, sym_key):
-    while True:
+    while not exit_flag:
         data = source_socket.recv(SOCKET_RECEIVE_SIZE)
         if not data:
             break
@@ -27,7 +30,7 @@ def forward_source_dest(source_socket, dest_socket, sym_key):
 
 # source is the client | dest is the server gateway
 def forward_dest_source(source_socket, dest_socket, sym_key):
-    while True:
+    while not exit_flag:
         enc_data = dest_socket.recv(SOCKET_RECEIVE_SIZE)
         if not enc_data:
             break
@@ -53,8 +56,20 @@ def handle_transfer(source_socket, dest_socket, sym_key):
     forward_source_dest_thread.start()
     forward_dest_source_thread.start()
 
+    # Main thread waits here after starting data forwarding child threads
+    # Wait for KeyboardInterrupt (Ctrl+C)
+    try:
+        while forward_source_dest_thread.is_alive() or forward_dest_source_thread.is_alive():
+            sleep(1)
+    except(KeyboardInterrupt):
+        global exit_flag
+        exit_flag = True
+        print("Closing program at user request (Ctrl+C)...")
+
     forward_source_dest_thread.join()
     forward_dest_source_thread.join()
+
+    print("Threads closed successfully.")
 
     latency_test.export_to_file()
 
@@ -75,7 +90,7 @@ def main():
 
     print(f"[*] Listening on {host_ip}:{host_port}")
     
-    while True:
+    while not exit_flag:
         source_socket, source_addr = server_socket.accept()
         print(f"[*] Accepted connection from client(source): {source_addr}")
 
@@ -90,6 +105,7 @@ def main():
         #### Stop measuring latency
         stop_time = latency_test.perf_counter()
         latency_test.key_exchange_latency = stop_time - start_time
+
         # If sym_key generated & transferred successfully proceed with normal data handling
         if(sym_key != None):
             handle_transfer(source_socket, dest_socket, sym_key)
@@ -98,6 +114,8 @@ def main():
 
         source_socket.close()
         dest_socket.close()
+
+    print("Program closed successfully!")
 
 
 if __name__ == "__main__":
