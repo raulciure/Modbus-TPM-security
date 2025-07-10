@@ -6,14 +6,29 @@ from Perf_test import latency_test
 from time import sleep
 
 
+SOCKET_TIMEOUT = 2
+SOCKET_RESET_MESSAGE = b'\x01\x01\x01\x01'
+
 exit_flag = False
+reset_flag = False
 
 
 # source is the client | dest is the server gateway
 def forward_source_dest(source_socket, dest_socket, sym_key):
-    while not exit_flag:
-        data = source_socket.recv(SOCKET_RECEIVE_SIZE)
-        if not data:
+    global reset_flag
+
+    while not exit_flag and not reset_flag:
+        try:
+            data = source_socket.recv(SOCKET_RECEIVE_SIZE)
+            if not data:
+                raise ConnectionError
+        except(TimeoutError):
+            if exit_flag or reset_flag:
+                break
+            continue
+        except(ConnectionError):
+            reset_flag = True
+            print("Source socket (client) error or disconnection. Resetting connection...")
             break
         
         print("Received from source: ", data)
@@ -25,14 +40,36 @@ def forward_source_dest(source_socket, dest_socket, sym_key):
         stop_time = latency_test.perf_counter()
         [latency_test.encrpyt_average_latency, latency_test.encrypt_average_counter] = latency_test.add_to_average(latency_test.encrpyt_average_latency, latency_test.encrypt_average_counter, stop_time - start_time)
 
-        dest_socket.send(enc_data)
+        try:
+            dest_socket.send(enc_data)
+        except(BrokenPipeError):
+            reset_flag = True
+            print("*** Destination socket (server gateway) is broken (BrokenPipeError). Resetting connection... ***")
+
+    if exit_flag or reset_flag:
+        try:
+            dest_socket.send(AES_encrypt_and_digest(sym_key, SOCKET_RESET_MESSAGE))
+        except(BrokenPipeError):
+            print("*** Unable to send resset message to destination socket (server gateway) - BrokenPipeError ***")
+
 
 
 # source is the client | dest is the server gateway
 def forward_dest_source(source_socket, dest_socket, sym_key):
-    while not exit_flag:
-        enc_data = dest_socket.recv(SOCKET_RECEIVE_SIZE)
-        if not enc_data:
+    global reset_flag
+
+    while not exit_flag and not reset_flag:
+        try:
+            enc_data = dest_socket.recv(SOCKET_RECEIVE_SIZE)
+            if not enc_data:
+                raise ConnectionError
+        except(TimeoutError):
+            if exit_flag or reset_flag:
+                break
+            continue
+        except(ConnectionError):
+            reset_flag = True
+            print("Destination socket (server gateway) error or disconnection. Resetting connection...")
             break
 
         try:
@@ -44,9 +81,17 @@ def forward_dest_source(source_socket, dest_socket, sym_key):
             [latency_test.decrypt_average_latency, latency_test.decrypt_average_counter] = latency_test.add_to_average(latency_test.decrypt_average_latency, latency_test.decrypt_average_counter, stop_time - start_time)
             print("Received from destination: ", data)
 
+            if(data == SOCKET_RESET_MESSAGE):
+                reset_flag = True
+                print("Reset message received!")
+                break
+
             source_socket.send(data)
         except(ValueError):
             print("**** !!! Message tampered or key is incorrect !!! ****")
+        except(BrokenPipeError):
+            reset_flag = True
+            print("*** Source socket (client) is broken (BrokenPipeError). Resetting connection... ***")
 
 
 def handle_transfer(source_socket, dest_socket, sym_key):
@@ -88,9 +133,12 @@ def main():
     server_socket.bind((host_ip, host_port))
     server_socket.listen(5)
 
-    print(f"[*] Listening on {host_ip}:{host_port}")
-    
     while not exit_flag:
+        global reset_flag
+        reset_flag = False
+
+        print(f"[*] Listening on {host_ip}:{host_port}")
+
         source_socket, source_addr = server_socket.accept()
         print(f"[*] Accepted connection from client(source): {source_addr}")
 
@@ -108,9 +156,24 @@ def main():
 
         # If sym_key generated & transferred successfully proceed with normal data handling
         if(sym_key != None):
+            # Set sockets to non-blocking mode
+            source_socket.settimeout(SOCKET_TIMEOUT)
+            dest_socket.settimeout(SOCKET_TIMEOUT)
+
             handle_transfer(source_socket, dest_socket, sym_key)
         else:
             print("Key exchange error")
+        
+        # Try to shutdown sockets and then close them
+        try:
+            source_socket.shutdown(socket.SHUT_RDWR)
+        except(OSError):
+            print("*** Source socket (client) already closed at the other end ***")
+
+        try:
+            dest_socket.shutdown(socket.SHUT_RDWR)
+        except(OSError):
+            print("*** Destination socket (server gateway) already closed at the other end ***")
 
         source_socket.close()
         dest_socket.close()
