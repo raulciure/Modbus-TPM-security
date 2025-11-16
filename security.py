@@ -60,7 +60,7 @@ def AES_decrypt_and_verify(key : bytes, enc_data : bytes):
     try:
         cipher.update(timestamp_msg)
         msg = unpad(cipher.decrypt_and_verify(ciphertext, MAC_tag), AES.block_size)
-        if(abs(timestamp_now - int.from_bytes(timestamp_msg)) >= TIMESTAMP_TOLERANCE):    # Verify timestamp
+        if(abs(timestamp_now - int.from_bytes(timestamp_msg)) > TIMESTAMP_TOLERANCE):    # Verify timestamp
             print("!!! Timestamp is different !!!")
             raise ValueError
         return msg
