@@ -22,15 +22,14 @@ def forward_source_dest(source_socket, dest_socket, sym_key):
             enc_data = source_socket.recv(SOCKET_RECEIVE_SIZE)
             if not enc_data:
                 raise ConnectionError
-        except ConnectionError as e:
-            if e is TimeoutError:
-                if exit_flag or reset_flag:
-                    break
-            else:
-                reset_flag = True
-                print("Source socket (client gateway) error or disconnection. Resetting connection...")
+        except TimeoutError:
+            if exit_flag or reset_flag:
                 break
             continue
+        except ConnectionError:
+            reset_flag = True
+            print("Source socket (client gateway) error or disconnection. Resetting connection...")
+            break
 
         try:
             #### Start measuring latency
@@ -63,16 +62,15 @@ def forward_dest_source(source_socket, dest_socket, sym_key):
             data = dest_socket.recv(SOCKET_RECEIVE_SIZE)
             if not data:
                 raise ConnectionError
-        except ConnectionError as e:
-            if e is TimeoutError:
-                if exit_flag or reset_flag:
-                    break
-            else:
-                reset_flag = True
-                print("Destination socket (server) error or disconnection. Resetting connection...")
-                source_socket.send(AES_encrypt_and_digest(sym_key, SOCKET_RESET_MESSAGE))
+        except TimeoutError:
+            if exit_flag or reset_flag:
                 break
             continue
+        except ConnectionError:
+            reset_flag = True
+            print("Destination socket (server) error or disconnection. Resetting connection...")
+            source_socket.send(AES_encrypt_and_digest(sym_key, SOCKET_RESET_MESSAGE))
+            break
 
         print("Received from destination: ", data)
 

@@ -49,7 +49,7 @@ def AES_encrypt_and_digest(key : bytes, msg : bytes):
 # function that decrypts & authenticates message using AES-GCM AEAD
 # returns original message
 def AES_decrypt_and_verify(key : bytes, enc_data : bytes):
-    TIMESTAMP_TOLERANCE = 1     # Tolerance for timestamp deviation (in seconds)
+    TIMESTAMP_TOLERANCE = 30     # Tolerance for timestamp deviation (in seconds)
 
     (nonce, timestamp_msg, (ciphertext, MAC_tag)) = loads(enc_data)
 
