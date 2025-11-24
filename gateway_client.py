@@ -14,7 +14,7 @@ reset_flag = False
 
 
 # source is the client | dest is the server gateway
-def forward_source_dest(source_socket, dest_socket, sym_key):
+def forward_source_dest(source_socket : socket.socket, dest_socket : socket.socket, sym_key : bytes):
     global reset_flag
 
     while not exit_flag and not reset_flag:
@@ -41,21 +41,21 @@ def forward_source_dest(source_socket, dest_socket, sym_key):
         [latency_test.encrpyt_average_latency, latency_test.encrypt_average_counter] = latency_test.add_to_average(latency_test.encrpyt_average_latency, latency_test.encrypt_average_counter, stop_time - start_time)
 
         try:
-            dest_socket.send(enc_data)
+            dest_socket.sendall(enc_data)
         except(BrokenPipeError):
             reset_flag = True
             print("*** Destination socket (server gateway) is broken (BrokenPipeError). Resetting connection... ***")
 
     if exit_flag or reset_flag:
         try:
-            dest_socket.send(AES_encrypt_and_digest(sym_key, SOCKET_RESET_MESSAGE))
+            dest_socket.sendall(AES_encrypt_and_digest(sym_key, SOCKET_RESET_MESSAGE))
         except(BrokenPipeError):
             print("*** Unable to send resset message to destination socket (server gateway) - BrokenPipeError ***")
 
 
 
 # source is the client | dest is the server gateway
-def forward_dest_source(source_socket, dest_socket, sym_key):
+def forward_dest_source(source_socket : socket.socket, dest_socket : socket.socket, sym_key : bytes):
     global reset_flag
 
     while not exit_flag and not reset_flag:
@@ -70,7 +70,7 @@ def forward_dest_source(source_socket, dest_socket, sym_key):
         except ConnectionError:
             reset_flag = True
             print("Destination socket (server gateway) error or disconnection. Resetting connection...")
-            dest_socket.send(AES_encrypt_and_digest(sym_key, SOCKET_RESET_MESSAGE))
+            dest_socket.sendall(AES_encrypt_and_digest(sym_key, SOCKET_RESET_MESSAGE))
             break
 
         try:
@@ -87,7 +87,7 @@ def forward_dest_source(source_socket, dest_socket, sym_key):
                 print("Reset message received!")
                 break
 
-            source_socket.send(data)
+            source_socket.sendall(data)
         except(ValueError):
             print("**** !!! Message tampered or key is incorrect !!! ****")
         except(BrokenPipeError):
@@ -95,7 +95,7 @@ def forward_dest_source(source_socket, dest_socket, sym_key):
             print("*** Source socket (client) is broken (BrokenPipeError). Resetting connection... ***")
 
 
-def handle_transfer(source_socket, dest_socket, sym_key):
+def handle_transfer(source_socket : socket.socket, dest_socket : socket.socket, sym_key : bytes):
     forward_source_dest_thread = threading.Thread(target = forward_source_dest, args = (source_socket, dest_socket, sym_key))
     forward_dest_source_thread = threading.Thread(target = forward_dest_source, args = (source_socket, dest_socket, sym_key))
 

@@ -14,7 +14,7 @@ reset_flag = False
 
 
 # source is the client gateway | dest is the server
-def forward_source_dest(source_socket, dest_socket, sym_key):
+def forward_source_dest(source_socket : socket.socket, dest_socket : socket.socket, sym_key : bytes):
     global reset_flag
 
     while not exit_flag and not reset_flag:
@@ -45,7 +45,7 @@ def forward_source_dest(source_socket, dest_socket, sym_key):
                 print("Reset message received!")
                 break
             
-            dest_socket.send(data)
+            dest_socket.sendall(data)
         except(ValueError):
             print("**** !!! Message tampered or key is incorrect !!! ****")
         except(BrokenPipeError):
@@ -54,7 +54,7 @@ def forward_source_dest(source_socket, dest_socket, sym_key):
 
 
 # source is the client gateway | dest is the server
-def forward_dest_source(source_socket, dest_socket, sym_key):
+def forward_dest_source(source_socket : socket.socket, dest_socket : socket.socket, sym_key : bytes):
     global reset_flag
 
     while not exit_flag and not reset_flag:
@@ -69,7 +69,7 @@ def forward_dest_source(source_socket, dest_socket, sym_key):
         except ConnectionError:
             reset_flag = True
             print("Destination socket (server) error or disconnection. Resetting connection...")
-            source_socket.send(AES_encrypt_and_digest(sym_key, SOCKET_RESET_MESSAGE))
+            source_socket.sendall(AES_encrypt_and_digest(sym_key, SOCKET_RESET_MESSAGE))
             break
 
         print("Received from destination: ", data)
@@ -82,14 +82,14 @@ def forward_dest_source(source_socket, dest_socket, sym_key):
         [latency_test.encrpyt_average_latency, latency_test.encrypt_average_counter] = latency_test.add_to_average(latency_test.encrpyt_average_latency, latency_test.encrypt_average_counter, stop_time - start_time)
         
         try:
-            source_socket.send(enc_data)
+            source_socket.sendall(enc_data)
         except(BrokenPipeError):
             reset_flag = True
             print("*** Source socket (client gateway) is broken (BrokenPipeError). Resetting connection... ***")
 
     if exit_flag or reset_flag:
         try:
-            source_socket.send(AES_encrypt_and_digest(sym_key, SOCKET_RESET_MESSAGE))
+            source_socket.sendall(AES_encrypt_and_digest(sym_key, SOCKET_RESET_MESSAGE))
         except(BrokenPipeError):
             print("*** Unable to send resset message to source socket (client gateway) - BrokenPipeError ***")
 

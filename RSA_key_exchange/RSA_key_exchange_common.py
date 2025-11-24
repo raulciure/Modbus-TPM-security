@@ -50,7 +50,7 @@ def store_peer_RSA_public_key(peer_public_key_bytes : bytes):
         print("Peer public key is already known!")
 
 
-def RSA_public_key_exchange(conn_socket : socket):
+def RSA_public_key_exchange(conn_socket : socket.socket):
     source_address = conn_socket.getsockname()[0]
     dest_address = conn_socket.getpeername()[0]
 
@@ -63,7 +63,7 @@ def RSA_public_key_exchange(conn_socket : socket):
     if(source_address <= dest_address):  # host sends the key first
         # host sends its public key to peer
             # conn_socket.send(len(RSA_key_bytes_public_own).to_bytes(SOCKET_INT_SIZE, 'big'))
-        conn_socket.send(RSA_key_bytes_public_own)
+        conn_socket.sendall(RSA_key_bytes_public_own)
         print("Sent own RSA public key!")
 
         # then recieves the public key from peer
@@ -82,7 +82,7 @@ def RSA_public_key_exchange(conn_socket : socket):
 
         # then sends its public key to peer
             # conn_socket.send(len(RSA_key_bytes_public_own).to_bytes(SOCKET_INT_SIZE, 'big'))
-        conn_socket.send(RSA_key_bytes_public_own)
+        conn_socket.sendall(RSA_key_bytes_public_own)
         print("Sent own RSA public key!")
 
     # Store peer key in TPM
