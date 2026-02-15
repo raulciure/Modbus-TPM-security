@@ -14,7 +14,7 @@ def RSA_keygen(nv_index):
     # generate new key
     print("Generating key.......")
     start_time = time.time()    # Start measuring time taken to generate key
-    key = RSA.generate(2048, get_random)
+    key = RSA.generate(2048, get_random)    # type: ignore
     end_time = time.time()
     print("Key generation finished.\nTime taken: ",  end_time - start_time, " seconds")
 

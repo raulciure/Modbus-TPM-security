@@ -75,7 +75,7 @@ def RSA_encrypt_and_sign(enc_key, sign_key, msg : bytes):
 
     enc_msg = cipher.encrypt(msg)
     h = SHA256.new(enc_msg)
-    signature = pss.new(sign_key).sign(h)
+    signature = pss.new(sign_key).sign(h)   # type: ignore
 
     return dumps((enc_msg, signature))
 
@@ -90,7 +90,7 @@ def RSA_decrypt_and_verify(dec_key, verif_key, enc_msg_encoded : bytes):
     h = SHA256.new(enc_msg)
     verifier = pss.new(verif_key)
     try:
-        verifier.verify(h, signature)
+        verifier.verify(h, signature)   # type: ignore
         return cipher.decrypt(enc_msg)
     except (ValueError):
         raise
@@ -100,7 +100,7 @@ def RSA_decrypt_and_verify(dec_key, verif_key, enc_msg_encoded : bytes):
 # Return: serialized tuple of message and signature
 def RSA_sign(sign_key : RSA.RsaKey, msg : bytes):
     h = SHA256.new(msg)
-    signature = pss.new(sign_key, rand_func=get_random).sign(h)
+    signature = pss.new(sign_key, rand_func=get_random).sign(h)     # type: ignore
 
     return dumps((msg, signature))
 
@@ -111,9 +111,9 @@ def RSA_verify(verif_key : RSA.RsaKey, signed_message_encoded : bytes):
     (msg, signature) = loads(signed_message_encoded)
 
     h = SHA256.new(msg)
-    verifier = pss.new(verif_key, rand_func=get_random)
+    verifier = pss.new(verif_key, rand_func=get_random)     # type: ignore
     try:
-        verifier.verify(h, signature)
+        verifier.verify(h, signature)   # type: ignore
         return msg
     except (ValueError):
         raise
@@ -129,7 +129,7 @@ def RSA_key_load(encoded_key):
 def RSA_key_read_and_load(index : int):
     encoded_key = RSA_key_read(index)
 
-    key = RSA.import_key(encoded_key, None)
+    key = RSA.import_key(encoded_key, None)     # type: ignore
     return key
 
 
@@ -144,7 +144,7 @@ def RSA_key_serialize(encoded_key : bytes):
 
 # Export key to DER format wtih option to return serialized bytes of tuple containing size and the formated key (used for TPM NV storage)
 def RSA_key_export(key : RSA.RsaKey, serialize_size=False):
-    exported_key = key.export_key(format='DER', passphrase=None, pkcs=8, protection='PBKDF2WithHMAC-SHA512AndAES256-CBC', randfunc=get_random)
+    exported_key = key.export_key(format='DER', passphrase=None, pkcs=8, protection='PBKDF2WithHMAC-SHA512AndAES256-CBC', randfunc=get_random)  # type: ignore
 
     if(serialize_size == True):
         return RSA_key_serialize(exported_key)
@@ -174,7 +174,7 @@ def RSA_key_read(index : int, raw_data=False) -> bytes | None:
 # Generate an ECC key
 def ECC_key_gen() -> ECC.EccKey:
     ECC_CURVE = "Curve25519"    # X25519 curve
-    key = ECC.generate(curve=ECC_CURVE, randfunc=get_random)
+    key = ECC.generate(curve=ECC_CURVE, randfunc=get_random)    # type: ignore
     return key
 
 

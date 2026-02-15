@@ -49,7 +49,7 @@ def store_TPM_nv(data : bytes, index : int):
     data_size = len(data)
 
     # declare pointers/casts for function inputs
-    data_pointer = ctypes.cast(data, ctypes.POINTER(ctypes.c_uint8))
+    data_pointer = ctypes.cast(data, ctypes.POINTER(ctypes.c_uint8))    # type: ignore
     data_size_c_uint32 = ctypes.c_uint32(data_size)
     index_c_uint32 = ctypes.c_uint32(index)
 
