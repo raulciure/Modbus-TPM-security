@@ -1,5 +1,6 @@
 import socket
 import threading
+import parse_args
 from key_exchange import key_exchange_routine, SOCKET_RECEIVE_SIZE
 from security import *
 from Perf_test import latency_test
@@ -14,7 +15,7 @@ reset_flag = False
 
 
 # source is the client | dest is the server gateway
-def forward_source_dest(source_socket : socket.socket, dest_socket : socket.socket, sym_key : bytes):
+def forward_source_dest(args, source_socket : socket.socket, dest_socket : socket.socket, sym_key : bytes):
     global reset_flag
 
     while not exit_flag and not reset_flag:
@@ -33,12 +34,15 @@ def forward_source_dest(source_socket : socket.socket, dest_socket : socket.sock
         
         print("Received from source: ", data)
 
-        #### Start measuring latency
-        start_time = latency_test.perf_counter()
-        enc_data = AES_encrypt_and_digest(sym_key, data)
-        #### Stop measuring latency
-        stop_time = latency_test.perf_counter()
-        [latency_test.encrpyt_average_latency, latency_test.encrypt_average_counter] = latency_test.add_to_average(latency_test.encrpyt_average_latency, latency_test.encrypt_average_counter, stop_time - start_time)
+        if args.measure_perf:
+            #### Start measuring latency
+            start_time = latency_test.perf_counter()
+            enc_data = AES_encrypt_and_digest(sym_key, data)
+            #### Stop measuring latency
+            stop_time = latency_test.perf_counter()
+            [latency_test.encrpyt_average_latency, latency_test.encrypt_average_counter] = latency_test.add_to_average(latency_test.encrpyt_average_latency, latency_test.encrypt_average_counter, stop_time - start_time)
+        else:
+            enc_data = AES_encrypt_and_digest(sym_key, data)
 
         try:
             dest_socket.sendall(enc_data)
@@ -55,7 +59,7 @@ def forward_source_dest(source_socket : socket.socket, dest_socket : socket.sock
 
 
 # source is the client | dest is the server gateway
-def forward_dest_source(source_socket : socket.socket, dest_socket : socket.socket, sym_key : bytes):
+def forward_dest_source(args, source_socket : socket.socket, dest_socket : socket.socket, sym_key : bytes):
     global reset_flag
 
     while not exit_flag and not reset_flag:
@@ -74,12 +78,16 @@ def forward_dest_source(source_socket : socket.socket, dest_socket : socket.sock
             break
 
         try:
-            #### Start measuring latency
-            start_time = latency_test.perf_counter()
-            data = AES_decrypt_and_verify(sym_key, enc_data)
-            #### Stop measuring latency
-            stop_time = latency_test.perf_counter()
-            [latency_test.decrypt_average_latency, latency_test.decrypt_average_counter] = latency_test.add_to_average(latency_test.decrypt_average_latency, latency_test.decrypt_average_counter, stop_time - start_time)
+            if args.measure_perf:
+                #### Start measuring latency
+                start_time = latency_test.perf_counter()
+                data = AES_decrypt_and_verify(args, sym_key, enc_data)
+                #### Stop measuring latency
+                stop_time = latency_test.perf_counter()
+                [latency_test.decrypt_average_latency, latency_test.decrypt_average_counter] = latency_test.add_to_average(latency_test.decrypt_average_latency, latency_test.decrypt_average_counter, stop_time - start_time)
+            else:
+                data = AES_decrypt_and_verify(args, sym_key, enc_data)
+                
             print("Received from destination: ", data)
 
             if(data == SOCKET_RESET_MESSAGE):
@@ -95,9 +103,9 @@ def forward_dest_source(source_socket : socket.socket, dest_socket : socket.sock
             print("*** Source socket (client) is broken (BrokenPipeError). Resetting connection... ***")
 
 
-def handle_transfer(source_socket : socket.socket, dest_socket : socket.socket, sym_key : bytes):
-    forward_source_dest_thread = threading.Thread(target = forward_source_dest, args = (source_socket, dest_socket, sym_key))
-    forward_dest_source_thread = threading.Thread(target = forward_dest_source, args = (source_socket, dest_socket, sym_key))
+def handle_transfer(args, source_socket : socket.socket, dest_socket : socket.socket, sym_key : bytes):
+    forward_source_dest_thread = threading.Thread(target = forward_source_dest, args = (args, source_socket, dest_socket, sym_key))
+    forward_dest_source_thread = threading.Thread(target = forward_dest_source, args = (args, source_socket, dest_socket, sym_key))
 
     forward_source_dest_thread.start()
     forward_dest_source_thread.start()
@@ -117,11 +125,13 @@ def handle_transfer(source_socket : socket.socket, dest_socket : socket.socket, 
 
     print("Threads closed successfully.")
 
-    latency_test.export_to_file()
+    if args.measure_perf:
+        latency_test.export_to_file()
 
 
 def main(): 
-    host_ip = '192.168.50.80'
+    hostname = socket.gethostname()
+    host_ip = socket.gethostbyname(hostname)    # host_ip = '192.168.50.80'
     host_port = 502
 
     source_ip = '192.168.50.241'
@@ -129,6 +139,18 @@ def main():
 
     dest_ip = '192.168.50.81'
     dest_port = 502
+
+    # Handle run arguments
+    args = parse_args.parse_args(__file__)
+
+    if args.host:
+        host_ip = args.host
+    if args.host_ip:
+        host_ip = args.host_ip
+    if args.dest:
+        dest_ip = args.dest
+    if args.dest_ip:
+        dest_ip = args.dest_ip
 
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.bind((host_ip, host_port))
@@ -147,13 +169,17 @@ def main():
         dest_socket.connect((dest_ip, dest_port))
         print(f"[*] Established connection to server(destination): {(dest_ip, dest_port)}")
         
-        #### Start measuring latency
-        start_time = latency_test.perf_counter()
-        # do key exchange here
-        sym_key = key_exchange_routine(dest_socket) # for server gateway use 'source_socket' | for client gateway use 'dest_socket'
-        #### Stop measuring latency
-        stop_time = latency_test.perf_counter()
-        latency_test.key_exchange_latency = stop_time - start_time
+        if args.measure_perf:
+            #### Start measuring latency
+            start_time = latency_test.perf_counter()
+            # do key exchange here
+            sym_key = key_exchange_routine(dest_socket) # for server gateway use 'source_socket' | for client gateway use 'dest_socket'
+            #### Stop measuring latency
+            stop_time = latency_test.perf_counter()
+            latency_test.key_exchange_latency = stop_time - start_time
+        else:
+            # do key exchange here
+            sym_key = key_exchange_routine(dest_socket) # for server gateway use 'source_socket' | for client gateway use 'dest_socket'
 
         # If sym_key generated & transferred successfully proceed with normal data handling
         if(sym_key != None):
@@ -161,7 +187,7 @@ def main():
             source_socket.settimeout(SOCKET_TIMEOUT)
             dest_socket.settimeout(SOCKET_TIMEOUT)
 
-            handle_transfer(source_socket, dest_socket, sym_key)
+            handle_transfer(args, source_socket, dest_socket, sym_key)
         else:
             print("Key exchange error")
         

@@ -48,8 +48,10 @@ def AES_encrypt_and_digest(key : bytes, msg : bytes):
 
 # function that decrypts & authenticates message using AES-GCM AEAD
 # returns original message
-def AES_decrypt_and_verify(key : bytes, enc_data : bytes):
-    TIMESTAMP_TOLERANCE = 30     # Tolerance for timestamp deviation (in seconds)
+def AES_decrypt_and_verify(args, key : bytes, enc_data : bytes):
+    TIMESTAMP_TOLERANCE = 1     # Tolerance for timestamp deviation (in seconds)
+    if args.set_timestamp_tolerance:
+        TIMESTAMP_TOLERANCE = args.set_timestamp_tolerance
 
     (nonce, timestamp_msg, (ciphertext, MAC_tag)) = loads(enc_data)
 
@@ -60,9 +62,10 @@ def AES_decrypt_and_verify(key : bytes, enc_data : bytes):
     try:
         cipher.update(timestamp_msg)
         msg = unpad(cipher.decrypt_and_verify(ciphertext, MAC_tag), AES.block_size)
-        if(abs(timestamp_now - int.from_bytes(timestamp_msg)) > TIMESTAMP_TOLERANCE):    # Verify timestamp
-            print("!!! Timestamp is different !!!")
-            raise ValueError
+        if not args.disable_replay_resistance:  # Check if replay resistance is disabled
+            if(abs(timestamp_now - int.from_bytes(timestamp_msg)) > TIMESTAMP_TOLERANCE):    # Verify timestamp
+                print("!!! Timestamp is different !!!")
+                raise ValueError
         return msg
     except(ValueError):
         raise
