@@ -1,6 +1,7 @@
 import socket
 import threading
 import parse_args
+import utils
 from key_exchange import key_exchange_routine, SOCKET_RECEIVE_SIZE
 from security import *
 from Perf_test import latency_test
@@ -130,8 +131,7 @@ def handle_transfer(args, source_socket : socket.socket, dest_socket : socket.so
 
 
 def main(): 
-    hostname = socket.gethostname()
-    host_ip = socket.gethostbyname(hostname)    # host_ip = '192.168.50.80'
+    host_ip = utils.get_host_ip()   # host_ip = '192.168.50.80'
     host_port = 502
 
     source_ip = '192.168.50.241'
