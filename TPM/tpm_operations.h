@@ -1,9 +1,14 @@
-#include "wolftpm/tpm2_types.h" // include wolfTPM types definition for using byte type (as well as others)
-#include "wolftpm/tpm2_wrap.h"
+#include <wolftpm/tpm2_types.h> // include wolfTPM types definition for using byte type (as well as others)
+
+#define DEBUG_MESSAGES 0  // set to 1 for showing debug messages
 
 #define TPM_MAX_NV_INDEX_SIZE 1536
 #define TPM_DEFAULT_NV_INDEX 0x01800202
 #define MAX_NV_BUFFER_SIZE 768
+
+#define HAL_CALLBACK_POINTER TPM2_IoCb
+#define CALLBACK_POINTER 0 // change this to HAL_CALLBACK_POINTER to use direct TPM interfacing
+
 
 static const char nvAuthPassword[] = "Nv <<>> auth - password";
 

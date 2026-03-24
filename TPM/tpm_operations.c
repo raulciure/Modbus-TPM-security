@@ -1,11 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "wolftpm/tpm2_wrap.h"
-#include "wolftpm/tpm2.h"
-#include "wolftpm/tpm_io.h"
-#include "wolftpm/tpm_test.h"
-#include "wolftpm/tpm_test_keys.h"
+// #include <wolfssl/options.h>
+// #include <wolfssl/wolfcrypt/settings.h>
+#include <wolftpm/tpm2_wrap.h>
 #include "tpm_operations.h"
+
+#if CALLBACK_POINTER != 0
+    #include <wolftpm/tpm_io.h>
+    #include <wolftpm/tpm2.h>
+#endif
 
 
 int TPM_GetRandom(void* userCtx, byte* buffer, word32 len)
@@ -14,24 +17,30 @@ int TPM_GetRandom(void* userCtx, byte* buffer, word32 len)
     WOLFTPM2_DEV dev;
 
     // Initialize the TPM
-    rc = wolfTPM2_Init(&dev, TPM2_IoCb, userCtx);
+    rc = wolfTPM2_Init(&dev, CALLBACK_POINTER, userCtx);
     if (rc != TPM_RC_SUCCESS) {
-        printf("\nwolfTPM2_Init failed\n");
+        #if DEBUG_MESSAGES == 1
+            printf("\nwolfTPM2_Init failed\n");
+        #endif
         goto exit;
     }
 
     // Get random buffer
     rc = wolfTPM2_GetRandom(&dev, buffer, len);
     if (rc != TPM_RC_SUCCESS) {
-        printf("\nwolfTPM2_GetRandom failed\n");
+        #if DEBUG_MESSAGES == 1
+            printf("\nwolfTPM2_GetRandom failed\n");
+        #endif
         goto exit;
     }
 
 exit:
 
-    if (rc != 0) {
-        printf("\nFailure 0x%x: %s\n\n", rc, wolfTPM2_GetRCString(rc));
-    }
+    #if DEBUG_MESSAGES == 1
+        if (rc != 0) {
+            printf("\nFailure 0x%x: %s\n\n", rc, wolfTPM2_GetRCString(rc));
+        }
+    #endif
 
     wolfTPM2_Cleanup(&dev);
     return rc;
@@ -56,9 +65,11 @@ int TPM_StoreNV(void* userCtx, byte* data, word32 dataSize, word32 indexOffset)
     XMEMSET(&tpmSession, 0, sizeof(tpmSession));
     XMEMSET(&parent, 0, sizeof(parent));
 
-    rc = wolfTPM2_Init(&dev, TPM2_IoCb, userCtx);
+    rc = wolfTPM2_Init(&dev, CALLBACK_POINTER, userCtx);
     if (rc != TPM_RC_SUCCESS) {
-        printf("\nwolfTPM2_Init failed\n");
+        #if DEBUG_MESSAGES == 1
+            printf("\nwolfTPM2_Init failed\n");
+        #endif
         goto exit;
     }
 
@@ -67,8 +78,10 @@ int TPM_StoreNV(void* userCtx, byte* data, word32 dataSize, word32 indexOffset)
         rc = wolfTPM2_StartSession(&dev, &tpmSession, NULL, NULL,
                 TPM_SE_HMAC, paramEncAlg);
         if (rc != 0) goto exit;
-        printf("TPM2_StartAuthSession: sessionHandle 0x%x\n",
-            (word32)tpmSession.handle.hndl);
+        #if DEBUG_MESSAGES == 1
+            printf("TPM2_StartAuthSession: sessionHandle 0x%x\n",
+                (word32)tpmSession.handle.hndl);
+        #endif
         /* Set TPM session attributes for parameter encryption */
         rc = wolfTPM2_SetAuthSession(&dev, 1, &tpmSession,
             (TPMA_SESSION_decrypt | TPMA_SESSION_encrypt | TPMA_SESSION_continueSession));
@@ -85,7 +98,9 @@ int TPM_StoreNV(void* userCtx, byte* data, word32 dataSize, word32 indexOffset)
             nvAttributes, TPM_MAX_NV_INDEX_SIZE, auth, authSz);
     if (rc != 0 && rc != TPM_RC_NV_DEFINED) goto exit;
 
-    printf("Storing key at TPM NV index 0x%x with password protection\n\n", nvIndex);
+    #if DEBUG_MESSAGES == 1
+        printf("Storing key at TPM NV index 0x%x with password protection\n\n", nvIndex);
+    #endif
 
     // Store data at NV index
     // Separate data in two buffers so that it fits in MAX_NV_BUFFER_SIZE (TPM limitation)
@@ -118,13 +133,17 @@ int TPM_StoreNV(void* userCtx, byte* data, word32 dataSize, word32 indexOffset)
         if (rc != 0) goto exit;
     }
 
-    printf("Stored key to TPM NV memory\n");
+    #if DEBUG_MESSAGES == 1
+        printf("Stored key to TPM NV memory\n");
+    #endif
 
 exit:
 
-    if (rc != 0) {
-        printf("\nFailure 0x%x: %s\n\n", rc, wolfTPM2_GetRCString(rc));
-    }
+    #if DEBUG_MESSAGES == 1
+        if (rc != 0) {
+            printf("\nFailure 0x%x: %s\n\n", rc, wolfTPM2_GetRCString(rc));
+        }
+    #endif
 
     wolfTPM2_UnloadHandle(&dev, &tpmSession.handle);
     wolfTPM2_Cleanup(&dev);
@@ -148,9 +167,11 @@ int TPM_ReadNV(void* userCtx, byte* data, word32* dataSize, word32 indexOffset)
     XMEMSET(&parent, 0, sizeof(parent));
     XMEMSET(&auth, 0, sizeof(auth));
 
-    rc = wolfTPM2_Init(&dev, TPM2_IoCb, userCtx);
+    rc = wolfTPM2_Init(&dev, CALLBACK_POINTER, userCtx);
     if (rc != TPM_RC_SUCCESS) {
-        printf("\nwolfTPM2_Init failed\n");
+        #if DEBUG_MESSAGES == 1
+            printf("\nwolfTPM2_Init failed\n");
+        #endif
         goto exit;
     }
 
@@ -159,8 +180,10 @@ int TPM_ReadNV(void* userCtx, byte* data, word32* dataSize, word32 indexOffset)
         rc = wolfTPM2_StartSession(&dev, &tpmSession, NULL, NULL,
                 TPM_SE_HMAC, paramEncAlg);
         if (rc != 0) goto exit;
-        printf("TPM2_StartAuthSession: sessionHandle 0x%x\n",
-            (word32)tpmSession.handle.hndl);
+        #if DEBUG_MESSAGES == 1
+            printf("TPM2_StartAuthSession: sessionHandle 0x%x\n",
+                (word32)tpmSession.handle.hndl);
+        #endif
         /* Set TPM session attributes for parameter encryption */
         rc = wolfTPM2_SetAuthSession(&dev, 1, &tpmSession,
             (TPMA_SESSION_decrypt | TPMA_SESSION_encrypt | TPMA_SESSION_continueSession));
@@ -205,13 +228,17 @@ int TPM_ReadNV(void* userCtx, byte* data, word32* dataSize, word32 indexOffset)
         if (rc != 0) goto exit;
     }
 
-    printf("Read key from TPM NV memory\n");
+    #if DEBUG_MESSAGES == 1
+        printf("Read key from TPM NV memory\n");
+    #endif
     
 exit:
 
-    if (rc != 0) {
-        printf("\nFailure 0x%x: %s\n\n", rc, wolfTPM2_GetRCString(rc));
-    }
+    #if DEBUG_MESSAGES == 1
+        if (rc != 0) {
+            printf("\nFailure 0x%x: %s\n\n", rc, wolfTPM2_GetRCString(rc));
+        }
+    #endif
 
     wolfTPM2_UnloadHandle(&dev, &tpmSession.handle);
     wolfTPM2_Cleanup(&dev);
@@ -228,9 +255,11 @@ int TPM_DeleteNV(void* userCtx, word32 indexOffset)
     word32 nvIndex = TPM_DEFAULT_NV_INDEX + indexOffset;
 
     // Initialize the TPM
-    rc = wolfTPM2_Init(&dev, TPM2_IoCb, userCtx);
+    rc = wolfTPM2_Init(&dev, CALLBACK_POINTER, userCtx);
     if (rc != TPM_RC_SUCCESS) {
-        printf("\nwolfTPM2_Init failed\n");
+        #if DEBUG_MESSAGES == 1
+            printf("\nwolfTPM2_Init failed\n");
+        #endif
         goto exit;
     }
 
@@ -243,13 +272,17 @@ int TPM_DeleteNV(void* userCtx, word32 indexOffset)
     rc = wolfTPM2_NVDeleteAuth(&dev, &parent, nvIndex);
     if (rc != 0) goto exit;
 
-    printf("NV index 0x%x deleted!\n", nvIndex);
+    #if DEBUG_MESSAGES == 1
+        printf("NV index 0x%x deleted!\n", nvIndex);
+    #endif
 
 exit:
 
-    if (rc != 0) {
-        printf("\nFailure 0x%x: %s\n\n", rc, wolfTPM2_GetRCString(rc));
-    }
+    #if DEBUG_MESSAGES == 1
+        if (rc != 0) {
+            printf("\nFailure 0x%x: %s\n\n", rc, wolfTPM2_GetRCString(rc));
+        }
+    #endif
 
     wolfTPM2_Cleanup(&dev);
     return rc;

@@ -14,17 +14,20 @@ else:
 print()
 
 # NV Store test
-result = store_TPM_nv(random_buffer, NV_INDEX)
+result = store_TPM_nv(random_buffer, NV_INDEX) # type: ignore
 if result == False:
     print("ERROR storing buffer in TPM NV!")
-print()
+else:
+    print("Buffer stored in TPM NV!\n")
 
 # NV Read test
 result_buffer = read_TPM_nv(NV_INDEX)
-print("Buffer read from TPM NV: \n ", list(result_buffer))
+print("Buffer read from TPM NV: \n ", list(result_buffer)) # type: ignore
 print()
 
 # NV Delete test
 result = delete_TPM_nv(NV_INDEX)
 if result == False:
     print("ERROR deleting TPM NV index!")
+else:
+    print("TPM NV index deleted!")
