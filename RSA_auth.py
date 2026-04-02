@@ -1,4 +1,4 @@
-# module containig functions used for RSA keys authorisation / authentification / verification
+# module containig functions used for RSA keys authorisation/authentification/verification
 
 import csv
 from Crypto.Hash import SHA256

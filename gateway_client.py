@@ -1,15 +1,5 @@
-import socket
-import threading
-import parse_args
-import utils
-from key_exchange import key_exchange_routine, SOCKET_RECEIVE_SIZE
-from security import *
-from Perf_test import latency_test
-from time import sleep
+from gateway_common import *
 
-
-SOCKET_TIMEOUT = 2
-SOCKET_RESET_MESSAGE = b'\x01\x01\x01\x01'
 
 exit_flag = False
 reset_flag = False
@@ -18,6 +8,9 @@ reset_flag = False
 # source is the client | dest is the server gateway
 def forward_source_dest(args, source_socket : socket.socket, dest_socket : socket.socket, sym_key : bytes):
     global reset_flag
+    # global rec_rekey_flag, sen_rekey_flag, ecc_key_own, ecc_pub_key_peer, rekey_switch_time
+
+    # new_sym_key = None
 
     while not exit_flag and not reset_flag:
         try:
@@ -35,15 +28,19 @@ def forward_source_dest(args, source_socket : socket.socket, dest_socket : socke
         
         print("Received from source: ", data)
 
+        (sym_key, comb_data) = rekey_sender(sym_key, data)
+
+        # comb_data = combine_rekey_data(sen_rekey_flag, data, ECC_key_export(ecc_key_own.public_key()) if (ecc_key_own is not None and sen_rekey_flag in (REKEY_INIT, REKEY_REPLY)) else None)
+
         if args.measure_perf:
             #### Start measuring latency
             start_time = latency_test.perf_counter()
-            enc_data = AES_encrypt_and_digest(sym_key, data)
+            enc_data = AES_encrypt_and_digest(sym_key, comb_data)
             #### Stop measuring latency
             stop_time = latency_test.perf_counter()
             [latency_test.encrpyt_average_latency, latency_test.encrypt_average_counter] = latency_test.add_to_average(latency_test.encrpyt_average_latency, latency_test.encrypt_average_counter, stop_time - start_time)
         else:
-            enc_data = AES_encrypt_and_digest(sym_key, data)
+            enc_data = AES_encrypt_and_digest(sym_key, comb_data)
 
         try:
             dest_socket.sendall(enc_data)
@@ -62,6 +59,8 @@ def forward_source_dest(args, source_socket : socket.socket, dest_socket : socke
 # source is the client | dest is the server gateway
 def forward_dest_source(args, source_socket : socket.socket, dest_socket : socket.socket, sym_key : bytes):
     global reset_flag
+    # global rec_rekey_flag, rekey_revert_flag, ecc_pub_key_peer
+    global rekey_revert_flag
 
     while not exit_flag and not reset_flag:
         try:
@@ -79,15 +78,26 @@ def forward_dest_source(args, source_socket : socket.socket, dest_socket : socke
             break
 
         try:
-            if args.measure_perf:
-                #### Start measuring latency
-                start_time = latency_test.perf_counter()
-                data = AES_decrypt_and_verify(args, sym_key, enc_data)
-                #### Stop measuring latency
-                stop_time = latency_test.perf_counter()
-                [latency_test.decrypt_average_latency, latency_test.decrypt_average_counter] = latency_test.add_to_average(latency_test.decrypt_average_latency, latency_test.decrypt_average_counter, stop_time - start_time)
-            else:
-                data = AES_decrypt_and_verify(args, sym_key, enc_data)
+            try:
+                if args.measure_perf:
+                    #### Start measuring latency
+                    start_time = latency_test.perf_counter()
+                    comb_data = AES_decrypt_and_verify(args, sym_key, enc_data)
+                    #### Stop measuring latency
+                    stop_time = latency_test.perf_counter()
+                    [latency_test.decrypt_average_latency, latency_test.decrypt_average_counter] = latency_test.add_to_average(latency_test.decrypt_average_latency, latency_test.decrypt_average_counter, stop_time - start_time)
+                else:
+                    comb_data = AES_decrypt_and_verify(args, sym_key, enc_data)
+            except(ValueError):     # Peer might have failed to change to new key => revert to old key as well and try again
+                if old_sym_key is not None:
+                    comb_data = AES_decrypt_and_verify(args, old_sym_key, enc_data)     # If old_sym_key exists, try to decrypt using it
+                    rekey_revert_flag = True
+                else:
+                    raise ValueError
+
+            # (rec_rekey_flag, data, ecc_pub_key_peer) = split_rekey_data(comb_data)
+            
+            (sym_key, data) = rekey_receiver(sym_key, comb_data)
                 
             print("Received from destination: ", data)
 

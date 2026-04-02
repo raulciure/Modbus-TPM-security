@@ -1,15 +1,5 @@
-import socket
-import threading
-import parse_args
-import utils
-from key_exchange import key_exchange_routine, SOCKET_RECEIVE_SIZE
-from security import *
-from Perf_test import latency_test
-from time import sleep
+from gateway_common import *
 
-
-SOCKET_TIMEOUT = 2
-SOCKET_RESET_MESSAGE = b'\x01\x01\x01\x01'
 
 exit_flag = False
 reset_flag = False
@@ -18,6 +8,8 @@ reset_flag = False
 # source is the client gateway | dest is the server
 def forward_source_dest(args, source_socket : socket.socket, dest_socket : socket.socket, sym_key : bytes):
     global reset_flag
+    # global rec_rekey_flag, rekey_revert_flag, ecc_pub_key_peer
+    global rekey_revert_flag
 
     while not exit_flag and not reset_flag:
         try:
@@ -34,15 +26,26 @@ def forward_source_dest(args, source_socket : socket.socket, dest_socket : socke
             break
 
         try:
-            if args.measure_perf:
-                #### Start measuring latency
-                start_time = latency_test.perf_counter()
-                data = AES_decrypt_and_verify(args, sym_key, enc_data)
-                #### Stop measuring latency
-                stop_time = latency_test.perf_counter()
-                [latency_test.decrypt_average_latency, latency_test.decrypt_average_counter] = latency_test.add_to_average(latency_test.decrypt_average_latency, latency_test.decrypt_average_counter, stop_time - start_time)
-            else:
-                data = AES_decrypt_and_verify(args, sym_key, enc_data)
+            try:
+                if args.measure_perf:
+                    #### Start measuring latency
+                    start_time = latency_test.perf_counter()
+                    comb_data = AES_decrypt_and_verify(args, sym_key, enc_data)
+                    #### Stop measuring latency
+                    stop_time = latency_test.perf_counter()
+                    [latency_test.decrypt_average_latency, latency_test.decrypt_average_counter] = latency_test.add_to_average(latency_test.decrypt_average_latency, latency_test.decrypt_average_counter, stop_time - start_time)
+                else:
+                    comb_data = AES_decrypt_and_verify(args, sym_key, enc_data)
+            except(ValueError):     # Peer might have failed to change to new key => revert to old key as well and try again
+                if old_sym_key is not None:
+                    comb_data = AES_decrypt_and_verify(args, old_sym_key, enc_data)     # If old_sym_key exists, try to decrypt using it
+                    rekey_revert_flag = True
+                else:
+                    raise ValueError
+
+            # (rec_rekey_flag, data, ecc_pub_key_peer) = split_rekey_data(comb_data)
+            
+            (sym_key, data) = rekey_receiver(sym_key, comb_data)
                 
             print("Received from source: ", data)
 
@@ -62,6 +65,10 @@ def forward_source_dest(args, source_socket : socket.socket, dest_socket : socke
 # source is the client gateway | dest is the server
 def forward_dest_source(args, source_socket : socket.socket, dest_socket : socket.socket, sym_key : bytes):
     global reset_flag
+    # global rec_rekey_flag, sen_rekey_flag, rekey_revert_flag, rekey_switch_time
+    # global ecc_key_own, ecc_pub_key_peer, old_sym_key, new_sym_key
+
+    # new_sym_key = None
 
     while not exit_flag and not reset_flag:
         try:
@@ -80,15 +87,57 @@ def forward_dest_source(args, source_socket : socket.socket, dest_socket : socke
 
         print("Received from destination: ", data)
 
+        # if rec_rekey_flag == REKEY_NONE:    # If received flag is none (0, i.e. normal operation), check if rekey time has passed
+        #     if int(time()) - rekey_switch_time >= REKEY_TIME:
+        #         sen_rekey_flag = REKEY_INIT
+        #         ecc_key_own = ECC_key_gen()
+        #     else:
+        #         sen_rekey_flag = REKEY_NONE
+        # elif rec_rekey_flag == REKEY_INIT:
+        #     sen_rekey_flag = REKEY_REPLY
+        #     ecc_key_own = ECC_key_gen()
+        # elif rec_rekey_flag == REKEY_REPLY:
+        #     if ecc_key_own is not None and ecc_pub_key_peer is not None:
+        #         sen_rekey_flag = REKEY_SWITCH
+        #         new_sym_key = ECDHE_key_agreement(ecc_key_own, ECC_public_key_import(ecc_pub_key_peer))
+        #     else:
+        #         sen_rekey_flag = REKEY_FAIL
+        # elif rec_rekey_flag == REKEY_SWITCH:
+        #     if new_sym_key is bytes:
+        #         old_sym_key = sym_key
+        #         sym_key = new_sym_key
+        #         sen_rekey_flag = REKEY_SWITCH_ACK
+        #     else:
+        #         rekey_revert_flag = True
+        #         sen_rekey_flag = REKEY_FAIL
+        # elif rec_rekey_flag == REKEY_SWITCH_ACK:
+        #     rekey_switch_time = int(time())     # Set rekey time to current time
+        #     sen_rekey_flag = REKEY_NONE
+        #     old_sym_key = None
+        #     new_sym_key = None
+        #     ecc_key_own = ecc_pub_key_peer = None
+        #     print("\t* New key ECDH key exchange performed! *")
+        # elif rec_rekey_flag == REKEY_FAIL:
+        #     sen_rekey_flag = REKEY_NONE
+        #     if rekey_revert_flag == True and old_sym_key is not None:
+        #         sym_key = old_sym_key
+        #     rekey_revert_flag = False
+        # else:
+        #     print("\t*** rec_key_flag not within specified range! ***")
+
+        (sym_key, comb_data) = rekey_sender(sym_key, data)
+            
+        # comb_data = combine_rekey_data(sen_rekey_flag, data, ECC_key_export(ecc_key_own.public_key()) if (ecc_key_own is not None and sen_rekey_flag in (REKEY_INIT, REKEY_REPLY)) else None)
+
         if args.measure_perf:
             #### Start measuring latency
             start_time = latency_test.perf_counter()
-            enc_data = AES_encrypt_and_digest(sym_key, data)
+            enc_data = AES_encrypt_and_digest(sym_key, comb_data)
             #### Stop measuring latency
             stop_time = latency_test.perf_counter()
             [latency_test.encrpyt_average_latency, latency_test.encrypt_average_counter] = latency_test.add_to_average(latency_test.encrpyt_average_latency, latency_test.encrypt_average_counter, stop_time - start_time)
         else:
-            enc_data = AES_encrypt_and_digest(sym_key, data)
+            enc_data = AES_encrypt_and_digest(sym_key, comb_data)
 
         try:
             source_socket.sendall(enc_data)
