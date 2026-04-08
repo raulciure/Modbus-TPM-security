@@ -1,4 +1,12 @@
-from gateway_common import *
+import gateway_common
+import socket
+import threading
+import utils
+from key_exchange import key_exchange_routine, SOCKET_RECEIVE_SIZE
+from security import *
+from Perf_test import latency_test
+from time import sleep, time
+from parse_args import parse_args_main
 
 
 exit_flag = False
@@ -8,8 +16,6 @@ reset_flag = False
 # source is the client gateway | dest is the server
 def forward_source_dest(args, source_socket : socket.socket, dest_socket : socket.socket, sym_key : bytes):
     global reset_flag
-    # global rec_rekey_flag, rekey_revert_flag, ecc_pub_key_peer
-    global rekey_revert_flag
 
     while not exit_flag and not reset_flag:
         try:
@@ -25,6 +31,14 @@ def forward_source_dest(args, source_socket : socket.socket, dest_socket : socke
             print("Source socket (client gateway) error or disconnection. Resetting connection...")
             break
 
+        # Change sym_key with the new key
+        if not args.disable_rekeying:
+            new_sym_key = gateway_common.rekey_get_new_key()
+            if new_sym_key is not None:
+                if sym_key != new_sym_key:
+                    sym_key = new_sym_key
+                    print("\t* New symmetric key applied! *")
+
         try:
             try:
                 if args.measure_perf:
@@ -37,19 +51,27 @@ def forward_source_dest(args, source_socket : socket.socket, dest_socket : socke
                 else:
                     comb_data = AES_decrypt_and_verify(args, sym_key, enc_data)
             except(ValueError):     # Peer might have failed to change to new key => revert to old key as well and try again
-                if old_sym_key is not None:
-                    comb_data = AES_decrypt_and_verify(args, old_sym_key, enc_data)     # If old_sym_key exists, try to decrypt using it
-                    rekey_revert_flag = True
+                if gateway_common.old_sym_key is not None:
+                    comb_data = AES_decrypt_and_verify(args, gateway_common.old_sym_key, enc_data)     # If old_sym_key exists, try to decrypt using it
+                    gateway_common.rekey_revert_flag = True
+                    print("*** Rekeying failed! Reverting to old key! ***")
                 else:
                     raise ValueError
 
-            # (rec_rekey_flag, data, ecc_pub_key_peer) = split_rekey_data(comb_data)
+            if not args.disable_rekeying:
+                try:
+                    data = gateway_common.rekey_receiver(sym_key, comb_data)
+                except ValueError:
+                    print("*** Rekey flag is incorrect! ***\nResetting connection...")
+                    data = gateway_common.SOCKET_RESET_MESSAGE  # Reset connection if rekey flag is incorrect (because the nature of the plaintext cannot be determined)
+            else:
+                data = comb_data
             
-            (sym_key, data) = rekey_receiver(sym_key, comb_data)
-                
-            print("Received from source: ", data)
+            print("\nReceived from source (pre-split): ", comb_data)
+            print("Received rekey flag: ", comb_data[0])
+            print("Received from source (post-split): ", data, "\n")
 
-            if(data == SOCKET_RESET_MESSAGE):
+            if(data == gateway_common.SOCKET_RESET_MESSAGE):
                 reset_flag = True
                 print("Reset message received!")
                 break
@@ -65,10 +87,6 @@ def forward_source_dest(args, source_socket : socket.socket, dest_socket : socke
 # source is the client gateway | dest is the server
 def forward_dest_source(args, source_socket : socket.socket, dest_socket : socket.socket, sym_key : bytes):
     global reset_flag
-    # global rec_rekey_flag, sen_rekey_flag, rekey_revert_flag, rekey_switch_time
-    # global ecc_key_own, ecc_pub_key_peer, old_sym_key, new_sym_key
-
-    # new_sym_key = None
 
     while not exit_flag and not reset_flag:
         try:
@@ -82,52 +100,25 @@ def forward_dest_source(args, source_socket : socket.socket, dest_socket : socke
         except ConnectionError:
             reset_flag = True
             print("Destination socket (server) error or disconnection. Resetting connection...")
-            source_socket.sendall(AES_encrypt_and_digest(sym_key, SOCKET_RESET_MESSAGE))
+            source_socket.sendall(AES_encrypt_and_digest(sym_key, gateway_common.SOCKET_RESET_MESSAGE))
             break
 
-        print("Received from destination: ", data)
+        if not args.disable_rekeying:
+            comb_data = gateway_common.rekey_sender(data)
+        else:
+            comb_data = data
 
-        # if rec_rekey_flag == REKEY_NONE:    # If received flag is none (0, i.e. normal operation), check if rekey time has passed
-        #     if int(time()) - rekey_switch_time >= REKEY_TIME:
-        #         sen_rekey_flag = REKEY_INIT
-        #         ecc_key_own = ECC_key_gen()
-        #     else:
-        #         sen_rekey_flag = REKEY_NONE
-        # elif rec_rekey_flag == REKEY_INIT:
-        #     sen_rekey_flag = REKEY_REPLY
-        #     ecc_key_own = ECC_key_gen()
-        # elif rec_rekey_flag == REKEY_REPLY:
-        #     if ecc_key_own is not None and ecc_pub_key_peer is not None:
-        #         sen_rekey_flag = REKEY_SWITCH
-        #         new_sym_key = ECDHE_key_agreement(ecc_key_own, ECC_public_key_import(ecc_pub_key_peer))
-        #     else:
-        #         sen_rekey_flag = REKEY_FAIL
-        # elif rec_rekey_flag == REKEY_SWITCH:
-        #     if new_sym_key is bytes:
-        #         old_sym_key = sym_key
-        #         sym_key = new_sym_key
-        #         sen_rekey_flag = REKEY_SWITCH_ACK
-        #     else:
-        #         rekey_revert_flag = True
-        #         sen_rekey_flag = REKEY_FAIL
-        # elif rec_rekey_flag == REKEY_SWITCH_ACK:
-        #     rekey_switch_time = int(time())     # Set rekey time to current time
-        #     sen_rekey_flag = REKEY_NONE
-        #     old_sym_key = None
-        #     new_sym_key = None
-        #     ecc_key_own = ecc_pub_key_peer = None
-        #     print("\t* New key ECDH key exchange performed! *")
-        # elif rec_rekey_flag == REKEY_FAIL:
-        #     sen_rekey_flag = REKEY_NONE
-        #     if rekey_revert_flag == True and old_sym_key is not None:
-        #         sym_key = old_sym_key
-        #     rekey_revert_flag = False
-        # else:
-        #     print("\t*** rec_key_flag not within specified range! ***")
+        # Change sym_key with the new key
+        if not args.disable_rekeying:
+            new_sym_key = gateway_common.rekey_get_new_key()
+            if new_sym_key is not None:
+                if sym_key != new_sym_key:
+                    sym_key = new_sym_key
+                    print("\t* New symmetric key applied! *")
 
-        (sym_key, comb_data) = rekey_sender(sym_key, data)
-            
-        # comb_data = combine_rekey_data(sen_rekey_flag, data, ECC_key_export(ecc_key_own.public_key()) if (ecc_key_own is not None and sen_rekey_flag in (REKEY_INIT, REKEY_REPLY)) else None)
+        print("\nReceived from destination (pre-comb): ", data)
+        print("Sent rekey flag: ", comb_data[0])
+        print("To send to source (post-comb): ", comb_data, "\n")
 
         if args.measure_perf:
             #### Start measuring latency
@@ -147,7 +138,7 @@ def forward_dest_source(args, source_socket : socket.socket, dest_socket : socke
 
     if exit_flag or reset_flag:
         try:
-            source_socket.sendall(AES_encrypt_and_digest(sym_key, SOCKET_RESET_MESSAGE))
+            source_socket.sendall(AES_encrypt_and_digest(sym_key, gateway_common.SOCKET_RESET_MESSAGE))
         except(BrokenPipeError):
             print("*** Unable to send resset message to source socket (client gateway) - BrokenPipeError ***")
 
@@ -189,7 +180,7 @@ def main():
     dest_port = 502
 
     # Handle run arguments
-    args = parse_args.parse_args(__file__)
+    args = parse_args_main(__file__)
 
     if args.host:
         host_ip = args.host
@@ -199,6 +190,8 @@ def main():
         dest_ip = args.dest
     if args.dest_ip:
         dest_ip = args.dest_ip
+    if args.set_rekey_interval:
+        gateway_common.REKEY_TIME = args.set_rekey_interval
 
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.bind((host_ip, host_port))
@@ -232,8 +225,11 @@ def main():
         # If sym_key generated successfully proceed with normal data handling
         if(sym_key != None):
             # Set sockets to non-blocking mode
-            source_socket.settimeout(SOCKET_TIMEOUT)
-            dest_socket.settimeout(SOCKET_TIMEOUT)
+            source_socket.settimeout(gateway_common.SOCKET_TIMEOUT)
+            dest_socket.settimeout(gateway_common.SOCKET_TIMEOUT)
+
+            # Set current time as time for last rekey event
+            gateway_common.rekey_switch_time = int(time())
 
             handle_transfer(args, source_socket, dest_socket, sym_key)
         else:

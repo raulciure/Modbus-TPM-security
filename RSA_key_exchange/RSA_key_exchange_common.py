@@ -5,6 +5,8 @@ import csv
 import sys
 sys.path.insert(1, "../")
 
+from parse_args import parse_args_RSA_key_exchange
+
 from tpm_security import store_TPM_nv, OWN_KEY_NV_INDEX
 from security import RSA_key_read_and_load, RSA_key_export, RSA_key_serialize
 from key_exchange import SOCKET_INT_SIZE, SOCKET_RECEIVE_SIZE
@@ -62,26 +64,18 @@ def RSA_public_key_exchange(conn_socket : socket.socket):
     # transfer the keys between devices
     if(source_address <= dest_address):  # host sends the key first
         # host sends its public key to peer
-            # conn_socket.send(len(RSA_key_bytes_public_own).to_bytes(SOCKET_INT_SIZE, 'big'))
         conn_socket.sendall(RSA_key_bytes_public_own)
         print("Sent own RSA public key!")
 
         # then recieves the public key from peer
-            # RSA_key_bytes_public_peer_size_bytes = conn_socket.recv(SOCKET_INT_SIZE)
-            # RSA_key_bytes_public_peer_size = int.from_bytes(RSA_key_bytes_public_peer_size_bytes, 'big')
-            # RSA_key_bytes_public_peer = conn_socket.recv(RSA_key_bytes_public_peer_size)
         RSA_key_bytes_public_peer = conn_socket.recv(SOCKET_RECEIVE_SIZE)
         print("Recieved peer RSA public key!")
     else:   # peer sends the key first
         # host receives the public key from peer
-            # RSA_key_bytes_public_peer_size_bytes = conn_socket.recv(SOCKET_INT_SIZE)
-            # RSA_key_bytes_public_peer_size = int.from_bytes(RSA_key_bytes_public_peer_size_bytes, 'big')
-            # RSA_key_bytes_public_peer = conn_socket.recv(RSA_key_bytes_public_peer_size)
         RSA_key_bytes_public_peer = conn_socket.recv(SOCKET_RECEIVE_SIZE)
         print("Recieved peer RSA public key!")
 
         # then sends its public key to peer
-            # conn_socket.send(len(RSA_key_bytes_public_own).to_bytes(SOCKET_INT_SIZE, 'big'))
         conn_socket.sendall(RSA_key_bytes_public_own)
         print("Sent own RSA public key!")
 
