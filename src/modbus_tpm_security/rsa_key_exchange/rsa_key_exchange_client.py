@@ -1,10 +1,9 @@
-from RSA_key_exchange_common import socket, RSA_public_key_exchange, parse_args_RSA_key_exchange
+import socket
+from src.modbus_tpm_security.rsa_key_exchange.rsa_key_exchange_common import RSA_public_key_exchange
+from src.modbus_tpm_security.parse_args import parse_args_RSA_key_exchange
 
 
 def RSA_key_exchange_client():
-    # host_ip = utils.get_host_ip()   # host_ip = '192.168.50.80'
-    # host_port = 502
-
     dest_ip = '192.168.50.81'
     dest_port = 502
 
@@ -20,8 +19,7 @@ def RSA_key_exchange_client():
     server_socket.connect((dest_ip, dest_port))
     print(f"[*] Established connection to server: {(dest_ip, dest_port)}")
 
-    # Exchange RSA public key
-    RSA_public_key_exchange(server_socket)
+    RSA_public_key_exchange(server_socket)      # Exchange RSA public key
 
     server_socket.close()
 

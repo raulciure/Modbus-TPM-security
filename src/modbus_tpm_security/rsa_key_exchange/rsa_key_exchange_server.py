@@ -1,9 +1,11 @@
-from RSA_key_exchange_common import socket, RSA_public_key_exchange, parse_args_RSA_key_exchange
-import utils
+import socket
+from src.modbus_tpm_security.rsa_key_exchange.rsa_key_exchange_common import RSA_public_key_exchange
+from src.modbus_tpm_security.parse_args import parse_args_RSA_key_exchange
+import src.modbus_tpm_security.utils as utils
 
 
 def RSA_key_exchange_server():
-    host_ip = utils.get_host_ip()   # host_ip = '192.168.50.81'
+    host_ip = utils.get_host_ip()
     host_port = 502
 
     # Handle run arguments
@@ -27,8 +29,7 @@ def RSA_key_exchange_server():
             client_socket, client_address = server_socket.accept()
             print(f"[*] Accepted connection from client: {client_address}")
 
-            # Exchange RSA public key
-            RSA_public_key_exchange(client_socket)
+            RSA_public_key_exchange(client_socket)      # Exchange RSA public key
 
             client_socket.close()
     except KeyboardInterrupt:

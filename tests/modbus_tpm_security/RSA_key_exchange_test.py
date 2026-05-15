@@ -1,18 +1,13 @@
-from Crypto.Hash import SHA256
 import csv
+from Crypto.Hash import SHA256
+from src.modbus_tpm_security.security import RSA_key_read, RSA_key_load, RSA_key_export
+from src.modbus_tpm_security.rsa_key_exchange.rsa_key_exchange_common import PEERS_FILE_FULL_PATH
 
-import sys
-sys.path.insert(1, "../")
-
-from security import RSA_key_read, RSA_key_load, RSA_key_export
-
-
-PEERS_FILE_NAME = "peers.csv"
 
 id = 1
 
 try:
-    with open(PEERS_FILE_NAME, "r", newline="") as peers_file:
+    with open(PEERS_FILE_FULL_PATH, "r", newline="") as peers_file:
         reader = csv.reader(peers_file, delimiter=":")
         for row in reader:
             public_key_hash_file = row[0]
@@ -41,4 +36,4 @@ try:
 
             id += 1
 except FileNotFoundError:
-    print("File " + PEERS_FILE_NAME + " does not exist! Run RSA_key_exchange first!")
+    print("File " + PEERS_FILE_FULL_PATH + " does not exist! Run RSA_key_exchange first!")

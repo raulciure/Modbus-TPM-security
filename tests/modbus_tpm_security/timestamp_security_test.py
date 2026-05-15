@@ -1,8 +1,9 @@
 import time
+import random
 from Crypto.Util.Padding import pad, unpad
 from Crypto.Cipher import AES
 from pickle import dumps, loads
-import random
+
 
 message = "Hello world!".encode()
 

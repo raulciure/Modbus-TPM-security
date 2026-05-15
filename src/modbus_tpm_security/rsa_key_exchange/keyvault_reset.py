@@ -1,18 +1,15 @@
-from os import remove
 import csv
+from os import remove
+from src.modbus_tpm_security.tpm_security import delete_TPM_nv
+from src.modbus_tpm_security.rsa_key_exchange.rsa_key_exchange_common import PEERS_FILE_FULL_PATH
 
-import sys
-sys.path.insert(1, "../")
-from tpm_security import delete_TPM_nv
-
-
-PEERS_FILE_NAME = "peers.csv"
 
 UPPER_INDEX_RANGE = 10
 
+
 # Delete keys from used indexes
 try:
-    with open(PEERS_FILE_NAME, "r", newline="") as peers_file:
+    with open(PEERS_FILE_FULL_PATH, "r", newline="") as peers_file:
         reader = csv.reader(peers_file, delimiter=":")
         for row in reader:
             if row:
@@ -23,7 +20,7 @@ try:
                     print("\tKey delete ERROR!")
 
     # Remove peers.csv file
-    remove(PEERS_FILE_NAME)
+    remove(PEERS_FILE_FULL_PATH)
 except FileNotFoundError:
     print("peers.csv not found!")
 

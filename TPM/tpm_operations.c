@@ -1,7 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-// #include <wolfssl/options.h>
-// #include <wolfssl/wolfcrypt/settings.h>
 #include <wolftpm/tpm2_wrap.h>
 #include "tpm_operations.h"
 

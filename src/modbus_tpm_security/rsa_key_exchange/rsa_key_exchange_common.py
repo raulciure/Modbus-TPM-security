@@ -1,15 +1,15 @@
+import os
 import socket
-from Crypto.Hash import SHA256
 import csv
+from Crypto.Hash import SHA256
+from src.modbus_tpm_security.tpm_security import store_TPM_nv, OWN_KEY_NV_INDEX
+from src.modbus_tpm_security.security import RSA_key_read_and_load, RSA_key_export, RSA_key_serialize
+from src.modbus_tpm_security.netcomm import NetComm
 
-import sys
-sys.path.insert(1, "../")
 
-from parse_args import parse_args_RSA_key_exchange
-
-from tpm_security import store_TPM_nv, OWN_KEY_NV_INDEX
-from security import RSA_key_read_and_load, RSA_key_export, RSA_key_serialize
-from key_exchange import SOCKET_INT_SIZE, SOCKET_RECEIVE_SIZE
+PEERS_FILE_PATH = current_script_path = os.path.dirname(os.path.abspath(__file__))
+PEERS_FILE_NAME = "peers.csv"
+PEERS_FILE_FULL_PATH = os.path.join(PEERS_FILE_PATH, PEERS_FILE_NAME)
 
 
 def store_peer_RSA_public_key(peer_public_key_bytes : bytes):
@@ -21,7 +21,7 @@ def store_peer_RSA_public_key(peer_public_key_bytes : bytes):
 
     # Find how many IDs are already in use
     try:
-        with open("peers.csv", "r", newline="") as peers_file:
+        with open(PEERS_FILE_FULL_PATH, "r", newline="") as peers_file:
             # Read peers from file into dictionary & check if peer public key is already in the list
             reader = csv.reader(peers_file, delimiter=":")
             for row in reader:
@@ -42,7 +42,7 @@ def store_peer_RSA_public_key(peer_public_key_bytes : bytes):
         if result == True:
             print("Peer public key successfully stored in TPM NV memory!")
             # Store the key hash & ID in dictionary CSV list
-            with open("peers.csv", "a", newline="") as peers_file:
+            with open(PEERS_FILE_FULL_PATH, "a", newline="") as peers_file:
                 # Write new entry into peers_file
                 writer = csv.writer(peers_file, delimiter=":")
                 writer.writerow((key_hash.hexdigest(), new_ID))
@@ -56,6 +56,8 @@ def RSA_public_key_exchange(conn_socket : socket.socket):
     source_address = conn_socket.getsockname()[0]
     dest_address = conn_socket.getpeername()[0]
 
+    communicator = NetComm(conn_socket)
+
     RSA_key_own = RSA_key_read_and_load(OWN_KEY_NV_INDEX)
     print("RSA key imported")
     RSA_key_bytes_public_own = RSA_key_export(RSA_key_own.public_key())
@@ -63,21 +65,16 @@ def RSA_public_key_exchange(conn_socket : socket.socket):
 
     # transfer the keys between devices
     if(source_address <= dest_address):  # host sends the key first
-        # host sends its public key to peer
-        conn_socket.sendall(RSA_key_bytes_public_own)
+        communicator.send(RSA_key_bytes_public_own)             # host sends its public key to peer
         print("Sent own RSA public key!")
 
-        # then recieves the public key from peer
-        RSA_key_bytes_public_peer = conn_socket.recv(SOCKET_RECEIVE_SIZE)
+        RSA_key_bytes_public_peer = communicator.receive()      # then recieves the public key from peer
         print("Recieved peer RSA public key!")
-    else:   # peer sends the key first
-        # host receives the public key from peer
-        RSA_key_bytes_public_peer = conn_socket.recv(SOCKET_RECEIVE_SIZE)
+    else:                               # peer sends the key first
+        RSA_key_bytes_public_peer = communicator.receive()      # host receives the public key from peer
         print("Recieved peer RSA public key!")
 
-        # then sends its public key to peer
-        conn_socket.sendall(RSA_key_bytes_public_own)
+        communicator.send(RSA_key_bytes_public_own)             # then sends its public key to peer
         print("Sent own RSA public key!")
 
-    # Store peer key in TPM
-    store_peer_RSA_public_key(RSA_key_bytes_public_peer)
+    store_peer_RSA_public_key(RSA_key_bytes_public_peer)        # Store peer key in TPM
