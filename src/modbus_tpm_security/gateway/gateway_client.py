@@ -35,18 +35,12 @@ def forward_source_dest(args, communicator_source : NetComm, communicator_dest :
         # if args.debug:
         print("\nReceived from source: ", data)
 
-        if args.measure_perf:
-            #### Start measuring latency
-            start_time = latency_measure.perf_counter()
-            enc_data = cipher.encrypt_and_digest(data)
-            #### Stop measuring latency
-            stop_time = latency_measure.perf_counter()
-            [latency_measure.encrpyt_average_latency, latency_measure.encrypt_average_counter] = latency_measure.add_to_average(latency_measure.encrpyt_average_latency, latency_measure.encrypt_average_counter, stop_time - start_time)
-        else:
-            enc_data = cipher.encrypt_and_digest(data)
+        enc_data = cipher.encrypt_and_digest(data)
 
         try:
             communicator_dest.send(enc_data)
+
+            # if args.debug:
             print("Sent to dest: ", enc_data)
             
             # if args.debug:
@@ -82,21 +76,14 @@ def forward_dest_source(args, communicator_source : NetComm, communicator_dest :
             communicator_dest.send(cipher.encrypt_and_digest(gateway_common.SOCKET_RESET_MESSAGE, is_reset_msg=True))
             break
 
+        # if args.debug:
         print("\nReceived from dest: ", enc_data)
 
         # if args.debug:
         print("Used key: ", cipher.get_sym_key())
 
         try:
-            if args.measure_perf:
-                #### Start measuring latency
-                start_time = latency_measure.perf_counter()
-                data = cipher.decrypt_and_verify(enc_data)
-                #### Stop measuring latency
-                stop_time = latency_measure.perf_counter()
-                [latency_measure.decrypt_average_latency, latency_measure.decrypt_average_counter] = latency_measure.add_to_average(latency_measure.decrypt_average_latency, latency_measure.decrypt_average_counter, stop_time - start_time)
-            else:
-                data = cipher.decrypt_and_verify(enc_data)
+            data = cipher.decrypt_and_verify(enc_data)
 
             # if args.debug:
             print("Sent to source: ", data)
@@ -142,7 +129,11 @@ def handle_transfer(args, source_socket : socket.socket, dest_socket : socket.so
     print("Threads closed successfully.")
 
     if args.measure_perf:
-        latency_measure.export_to_file()
+        sym_cipher_latencies = cipher.get_latency_meters()
+        if sym_cipher_latencies is not None:
+            latency_measure.export_to_file_sym_cipher(sym_cipher_latencies[0], sym_cipher_latencies[1])
+        else:
+            raise ValueError("[handle_transfer] sym_cipher_latencies is None")
 
 
 def main(): 
@@ -187,13 +178,10 @@ def main():
         print(f"[*] Established connection to server(destination): {(dest_ip, dest_port)}")
         
         if args.measure_perf:
-            #### Start measuring latency
-            start_time = latency_measure.perf_counter()
+            latency_meter = latency_measure.LatencyMeter()
             # do key exchange here
-            sym_key = key_exchange_routine(dest_socket) # for server gateway use 'source_socket' | for client gateway use 'dest_socket'
-            #### Stop measuring latency
-            stop_time = latency_measure.perf_counter()
-            latency_measure.key_exchange_latency = stop_time - start_time
+            sym_key = latency_meter.measure_latency(lambda: key_exchange_routine(dest_socket)) # for server gateway use 'source_socket' | for client gateway use 'dest_socket'
+            latency_measure.export_to_file_key_exchange(latency_meter.get_average_latency())
         else:
             # do key exchange here
             sym_key = key_exchange_routine(dest_socket) # for server gateway use 'source_socket' | for client gateway use 'dest_socket'

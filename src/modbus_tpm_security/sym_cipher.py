@@ -6,6 +6,7 @@ from time import time
 from enum import IntEnum
 from src.modbus_tpm_security.packet_format import Formatter
 from src.modbus_tpm_security.rekeyer import Rekeyer, RekeyerDisabler
+from src.modbus_tpm_security.perf_measure.latency_measure import LatencyMeter
 
 
 class CipherTypes(IntEnum):
@@ -94,6 +95,9 @@ class SymCipher:
     __rekeyer : Rekeyer
     __debug_flag : bool
 
+    __latency_meter_enc : LatencyMeter | None
+    __latency_meter_dec : LatencyMeter | None
+
 
     def __init__(self, args, cipher_type : int, sym_key : bytes) -> None:
         self.__cipher_type = cipher_type
@@ -115,10 +119,22 @@ class SymCipher:
                 self.__timestamp_tolerance = -1
             else:
                 self.__timestamp_tolerance = args.set_timestamp_tolerance
+
+            if args.measure_perf:
+                self.__latency_meter_enc = LatencyMeter()
+                self.__latency_meter_dec = LatencyMeter()
+            else:
+                self.__latency_meter_enc = self.__latency_meter_dec = None
+
         else:                               # Case when args is None (external debug/tests)
             self.__rekeyer = RekeyerDisabler()
             self.__timestamp_tolerance = -1
             self.__debug_flag = True
+
+    def get_latency_meters(self):
+        if self.__latency_meter_enc is None or self.__latency_meter_dec is None:
+            return None
+        return (self.__latency_meter_enc.get_average_latency(), self.__latency_meter_dec.get_average_latency())
 
     def __update_key(self, *, called_before_send : bool):
         if not isinstance(self.__rekeyer, RekeyerDisabler):
@@ -149,9 +165,15 @@ class SymCipher:
         cipher.update(timestamp)
 
         if isinstance(cipher, ChaCha20Poly1305Cipher):
-            (ciphertext, MAC_tag) = cipher.encrypt_and_digest(msg)  # ChaCha20 is a stream cipher => no padding required
+            if self.__latency_meter_enc is not None:
+                (ciphertext, MAC_tag) = self.__latency_meter_enc.measure_latency(lambda: cipher.encrypt_and_digest(msg))
+            else:
+                (ciphertext, MAC_tag) = cipher.encrypt_and_digest(msg)  # ChaCha20 is a stream cipher => no padding required
         else:
-            (ciphertext, MAC_tag) = cipher.encrypt_and_digest(pad(msg, AES.block_size))
+            if self.__latency_meter_enc is not None:
+                (ciphertext, MAC_tag) = self.__latency_meter_enc.measure_latency(lambda: cipher.encrypt_and_digest(pad(msg, AES.block_size)))
+            else:
+                (ciphertext, MAC_tag) = cipher.encrypt_and_digest(pad(msg, AES.block_size))
 
         return (nonce, timestamp, ciphertext, MAC_tag)
 
@@ -173,9 +195,15 @@ class SymCipher:
             cipher.update(timestamp_msg)
 
             if isinstance(cipher, ChaCha20Poly1305Cipher):
-                msg = cipher.decrypt_and_verify(ciphertext, MAC_tag)
+                if self.__latency_meter_dec is not None:
+                    msg = self.__latency_meter_dec.measure_latency(lambda: cipher.decrypt_and_verify(ciphertext, MAC_tag))
+                else:
+                    msg = cipher.decrypt_and_verify(ciphertext, MAC_tag)
             else:
-                msg = unpad(cipher.decrypt_and_verify(ciphertext, MAC_tag), AES.block_size)
+                if self.__latency_meter_dec is not None:
+                    msg = self.__latency_meter_dec.measure_latency(lambda: unpad(cipher.decrypt_and_verify(ciphertext, MAC_tag), AES.block_size))
+                else:
+                    msg = unpad(cipher.decrypt_and_verify(ciphertext, MAC_tag), AES.block_size)
         
             if self.__timestamp_tolerance > -1:  # Check if replay resistance is disabled
                 if(abs(timestamp_now - int.from_bytes(timestamp_msg)) > self.__timestamp_tolerance):    # Verify timestamp
