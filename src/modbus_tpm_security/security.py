@@ -1,102 +1,12 @@
 # module containing functions used for security operations
 
-from Crypto.Cipher import AES
-from Crypto.Cipher import PKCS1_OAEP
 from Crypto.PublicKey import RSA
-from Crypto.Util.Padding import pad, unpad
 from Crypto.Signature import pss
 from Crypto.Hash import SHA256
 from Crypto.PublicKey import ECC
 from Crypto.Protocol import DH
 from pickle import dumps, loads
-from time import time
 from src.modbus_tpm_security.tpm_security import get_random, read_TPM_nv
-
-
-# # generates an AES-256 key
-# def AES_key_gen():
-#     key = get_random(32)
-
-#     if(key == None):
-#         # retry 10 times to get key
-#         counter = 0
-#         while(key == None and counter < 10):
-#             key = get_random(32)
-#             counter += 1
-
-#     if(key != None):
-#         return key
-#     else:
-#         return None
-
-
-# # function that encrypts message using AES-GCM AEAD
-# # returns serialized nonce & enc_tuple
-# def AES_encrypt_and_digest(key : bytes, msg : bytes):
-#     cipher = AES.new(key, AES.MODE_GCM)
-#     nonce = cipher.nonce
-
-#     timestamp = int(time()).to_bytes(4)
-#     cipher.update(timestamp)
-
-#     enc_tuple = cipher.encrypt_and_digest(pad(msg, AES.block_size))
-
-#     enc_data = dumps((nonce, timestamp, enc_tuple))
-
-#     return enc_data
-
-
-# # function that decrypts & authenticates message using AES-GCM AEAD
-# # returns original message
-# def AES_decrypt_and_verify(args, key : bytes, enc_data : bytes):
-#     TIMESTAMP_TOLERANCE = 1     # Tolerance for timestamp deviation (in seconds)
-#     if args.set_timestamp_tolerance:
-#         TIMESTAMP_TOLERANCE = args.set_timestamp_tolerance
-
-#     (nonce, timestamp_msg, (ciphertext, MAC_tag)) = loads(enc_data)
-
-#     cipher = AES.new(key, AES.MODE_GCM, nonce=nonce)
-
-#     timestamp_now = int(time())
-
-#     try:
-#         cipher.update(timestamp_msg)
-#         msg = unpad(cipher.decrypt_and_verify(ciphertext, MAC_tag), AES.block_size)
-#         if not args.disable_replay_resistance:  # Check if replay resistance is disabled
-#             if(abs(timestamp_now - int.from_bytes(timestamp_msg)) > TIMESTAMP_TOLERANCE):    # Verify timestamp
-#                 print("!!! Timestamp is different !!!")
-#                 raise ValueError
-#         return msg
-#     except(ValueError):
-#         raise
-
-
-# # function that encrypts message using RSA - PKCS1_OAEP with a public key and signs encrypted message using PKCS1_PSS with a private key
-# # returns serialized tuple of encrypted message and signature
-# def RSA_encrypt_and_sign(enc_key, sign_key, msg : bytes):
-#     cipher = PKCS1_OAEP.new(enc_key)
-
-#     enc_msg = cipher.encrypt(msg)
-#     h = SHA256.new(enc_msg)
-#     signature = pss.new(sign_key).sign(h)   # type: ignore
-
-#     return dumps((enc_msg, signature))
-
-
-# # function that decrypts message using RSA - PKCS1_OAEP with a private key and verifies encrypted message using PKCS1_PSS with a public key
-# # returns decrypted message or raises ValueError exception if signature can't be verified
-# def RSA_decrypt_and_verify(dec_key, verif_key, enc_msg_encoded : bytes):
-#     cipher = PKCS1_OAEP.new(dec_key)
-
-#     (enc_msg, signature) = loads(enc_msg_encoded)
-
-#     h = SHA256.new(enc_msg)
-#     verifier = pss.new(verif_key)
-#     try:
-#         verifier.verify(h, signature)   # type: ignore
-#         return cipher.decrypt(enc_msg)
-#     except (ValueError):
-#         raise
 
 
 # Sign message with RSA private key using PKCS1_PSS
