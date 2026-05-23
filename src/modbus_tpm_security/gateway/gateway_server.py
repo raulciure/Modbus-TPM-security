@@ -12,11 +12,12 @@ from src.modbus_tpm_security.netcomm import NetComm
 
 exit_flag = False
 reset_flag = False
+
 debug_level = 0
 
 
 # source is the client gateway | dest is the server
-def forward_source_dest(communicator_source : NetComm, communicator_dest : NetComm, cipher : SymCipher):
+def forward_source_dest(communicator_source : NetComm, communicator_dest : NetComm, cipher : SymCipher, latency_meter : latency_measure.LatencyMeter | None = None):
     global reset_flag
 
     while not exit_flag and not reset_flag:
@@ -40,7 +41,10 @@ def forward_source_dest(communicator_source : NetComm, communicator_dest : NetCo
             print("Used key: ", cipher.get_sym_key())
 
         try:
-            data = cipher.decrypt_and_verify(enc_data)
+            if latency_meter is not None:
+                data = latency_meter.measure_latency(lambda: cipher.decrypt_and_verify(enc_data))
+            else:
+                data = cipher.decrypt_and_verify(enc_data)
 
             if debug_level >= 1:
                 print("Sent to dest: ", data)
@@ -59,7 +63,7 @@ def forward_source_dest(communicator_source : NetComm, communicator_dest : NetCo
 
 
 # source is the client gateway | dest is the server
-def forward_dest_source(communicator_source : NetComm, communicator_dest : NetComm, cipher : SymCipher):
+def forward_dest_source(communicator_source : NetComm, communicator_dest : NetComm, cipher : SymCipher, latency_meter : latency_measure.LatencyMeter | None = None):
     global reset_flag
 
     while not exit_flag and not reset_flag:
@@ -80,7 +84,10 @@ def forward_dest_source(communicator_source : NetComm, communicator_dest : NetCo
         if debug_level >= 1:
             print("\nReceived from dest: ", data)
 
-        enc_data = cipher.encrypt_and_digest(data)
+        if latency_meter is not None:
+            enc_data = latency_meter.measure_latency(lambda: cipher.encrypt_and_digest(data))
+        else:
+            enc_data = cipher.encrypt_and_digest(data)
 
         if debug_level >= 1:
             print("Sent to source: ", enc_data)
@@ -106,9 +113,14 @@ def handle_transfer(args, source_socket : socket.socket, dest_socket : socket.so
     communicator_source = NetComm(source_socket)
     communicator_dest = NetComm(dest_socket, header_format=gateway_common.MODBUS_TCP_HEADER_FORMAT, length_index=gateway_common.MODBUS_TCP_PAYLOAD_LENGHTH_INDEX,
                                 headerless_send=True, header_receive=True)
+    
+    latency_meter_enc = latency_meter_dec = None
+    if args.measure_perf:
+        latency_meter_enc = latency_measure.LatencyMeter()
+        latency_meter_dec = latency_measure.LatencyMeter()
 
-    forward_source_dest_thread = threading.Thread(target = forward_source_dest, args = (communicator_source, communicator_dest, cipher))
-    forward_dest_source_thread = threading.Thread(target = forward_dest_source, args = (communicator_source, communicator_dest, cipher))
+    forward_source_dest_thread = threading.Thread(target = forward_source_dest, args = (communicator_source, communicator_dest, cipher, latency_meter_dec))
+    forward_dest_source_thread = threading.Thread(target = forward_dest_source, args = (communicator_source, communicator_dest, cipher, latency_meter_enc))
 
     forward_source_dest_thread.start()
     forward_dest_source_thread.start()
@@ -128,12 +140,9 @@ def handle_transfer(args, source_socket : socket.socket, dest_socket : socket.so
 
     print("Threads closed successfully.")
 
-    if args.measure_perf:
-        sym_cipher_latencies = cipher.get_latency_meters()
-        if sym_cipher_latencies is not None:
-            latency_measure.export_to_file_sym_cipher(sym_cipher_latencies[0], sym_cipher_latencies[1])
-        else:
-            raise ValueError("[handle_transfer] sym_cipher_latencies is None")
+    if args.measure_perf and (latency_meter_enc is not None and latency_meter_dec is not None):
+        latency_measure.export_to_file_sym_cipher(latency_meter_enc.get_average_latency(), latency_meter_enc.get_average_runs(),
+                                                   latency_meter_dec.get_average_latency(), latency_meter_dec.get_average_runs())
 
 
 def main():
@@ -184,7 +193,7 @@ def main():
             latency_meter = latency_measure.LatencyMeter()
             # do key exchange here
             sym_key =  latency_meter.measure_latency(lambda: key_exchange_routine(source_socket))   # for server gateway use 'source_socket' | for client gateway use 'dest_socket'
-            latency_measure.export_to_file_key_exchange(latency_meter.get_average_latency())
+            latency_measure.export_to_file_key_exchange(latency_meter.get_average_latency(), latency_meter.get_average_runs())
         else:
             # do key exchange here
             sym_key = key_exchange_routine(source_socket)                                           # for server gateway use 'source_socket' | for client gateway use 'dest_socket'
