@@ -16,7 +16,9 @@ def parse_args_main(prog_path : str):
     parser.add_argument("--disable-replay-resistance", action="store_true", help="Disable replay attack resistance")
     parser.add_argument("--set-rekey-interval", type=int, default=600, metavar="SECONDS", help="Set custom rekey interval for forward secrecy support, in seconds (default 600)")
     parser.add_argument("--disable-rekeying", action="store_true", help="Disable periodic rekeying and forward secrecy support")
-    parser.add_argument("--debug", action="store_true", help="Turn on debugging text in OOP classes")
+    parser.add_argument("-v", action="store_true", help="Turn on verbose text level 1")
+    parser.add_argument("-vv", action="store_true", help="Turn on verbose text level 2")
+    parser.add_argument("-vvv", action="store_true", help="Turn on verbose text level 3")
 
     parser.add_argument("--set-cipher", type=CipherTypes.get_cipher_index, choices=CipherTypes.get_cipher_list_str(), default="AES_GCM",
                         metavar=CipherTypes.get_cipher_formatted_list(), help="Set symmetric cipher to use (default: AES_GCM)")

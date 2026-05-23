@@ -93,7 +93,7 @@ class SymCipher:
     __key : bytes
     __timestamp_tolerance : int
     __rekeyer : Rekeyer
-    __debug_flag : bool
+    __debug_flag : int
 
     __latency_meter_enc : LatencyMeter | None
     __latency_meter_dec : LatencyMeter | None
@@ -105,10 +105,14 @@ class SymCipher:
         self.__timestamp_tolerance = 1      # Tolerance for timestamp deviation (in seconds)
 
         if args is not None:
-            if args.debug:
-                self.__debug_flag = True
+            if args.v:
+                self.__debug_flag = 1
+            elif args.vv:
+                self.__debug_flag = 2
+            elif args.vvv:
+                self.__debug_flag = 3
             else:
-                self.__debug_flag = False
+                self.__debug_flag = 0
             
             if args.disable_rekeying:
                 self.__rekeyer = RekeyerDisabler()
@@ -129,7 +133,7 @@ class SymCipher:
         else:                               # Case when args is None (external debug/tests)
             self.__rekeyer = RekeyerDisabler()
             self.__timestamp_tolerance = -1
-            self.__debug_flag = True
+            self.__debug_flag = 3
 
     def get_latency_meters(self):
         if self.__latency_meter_enc is None or self.__latency_meter_dec is None:
@@ -141,7 +145,7 @@ class SymCipher:
             rekeyer_key = self.__rekeyer.get_new_key(called_before_send=called_before_send)
             if rekeyer_key is not None and rekeyer_key != self.__key:
                 self.__key = rekeyer_key
-                if self.__debug_flag is True:
+                if self.__debug_flag >= 3:
                     print("\t* New symmetric key applied! *")
                     print("\tNew key: ", rekeyer_key.hex(' '))
 
@@ -227,7 +231,7 @@ class SymCipher:
                 try:
                     data = self.__decrypt_and_verify(nonce, timestamp_msg, ciphertext, MAC_tag, old_sym_key)
                     self.__rekeyer.set_fail_flag()
-                    if self.__debug_flag:
+                    if self.__debug_flag >= 1:
                         print("*** Rekeying failed! Reverting to old key! ***")
                     self.__key = old_sym_key
                     return data
