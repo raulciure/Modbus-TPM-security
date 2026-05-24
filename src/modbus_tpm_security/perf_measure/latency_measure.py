@@ -38,7 +38,13 @@ class LatencyMeter:
         self.__size += 1
     
     def measure_latency(self, fun : Callable[[], T], time_budget = 0.1, safety_factor = 0.6) -> T:
+        t_init_start = time.perf_counter()
         result = fun()
+        t_init_taken = time.perf_counter() - t_init_start
+
+        if t_init_taken >= time_budget:
+            self.__add_to_average(t_init_taken, 1)
+            return result
 
         timer = timeit.Timer(fun) # type: ignore
 
@@ -49,12 +55,14 @@ class LatencyMeter:
         remaining_t = deadline_t - time.perf_counter()      # Calculate remaining time based on deadline time and current time
         if remaining_t <= 0:                # If there's no remaining time left, return using only the one measurment already taken
             self.__add_to_average(t_one, 1)
-        else:                               # Else, estimate the maximum number of loops so that the deadline is not exceeded, using a safety factor
-            loop_num = max(1, int((remaining_t * safety_factor) / t_one))       # Use only part of the remaining time to avoid overshoot (i.e. exceeding time_budget)
+            return result
+        
+        # Else, estimate the maximum number of loops so that the deadline is not exceeded, using a safety factor
+        loop_num = max(1, int((remaining_t * safety_factor) / t_one))       # Use only part of the remaining time to avoid overshoot (i.e. exceeding time_budget)
 
-            t_total = timer.timeit(number=loop_num)
+        t_total = timer.timeit(number=loop_num)
 
-            self.__add_to_average((t_total + t_one) / (loop_num + 1), (loop_num + 1))
+        self.__add_to_average((t_total + t_one) / (loop_num + 1), (loop_num + 1))
 
         return result
 

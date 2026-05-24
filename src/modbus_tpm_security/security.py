@@ -6,14 +6,14 @@ from Crypto.Hash import SHA256
 from Crypto.PublicKey import ECC
 from Crypto.Protocol import DH
 from pickle import dumps, loads
-from src.modbus_tpm_security.tpm_security import get_random, read_TPM_nv
+from src.modbus_tpm_security.tpm_security import read_TPM_nv
 
 
 # Sign message with RSA private key using PKCS1_PSS
 # Return: serialized tuple of message and signature
 def RSA_sign(sign_key : RSA.RsaKey, msg : bytes):
     h = SHA256.new(msg)
-    signature = pss.new(sign_key, rand_func=get_random).sign(h)     # type: ignore
+    signature = pss.new(sign_key, rand_func).sign(h)     # type: ignore
 
     return dumps((msg, signature))
 
@@ -24,7 +24,7 @@ def RSA_verify(verif_key : RSA.RsaKey, signed_message_encoded : bytes):
     (msg, signature) = loads(signed_message_encoded)
 
     h = SHA256.new(msg)
-    verifier = pss.new(verif_key, rand_func=get_random)     # type: ignore
+    verifier = pss.new(verif_key)     # type: ignore
     try:
         verifier.verify(h, signature)   # type: ignore
         return msg
@@ -57,7 +57,7 @@ def RSA_key_serialize(encoded_key : bytes):
 
 # Export key to DER format wtih option to return serialized bytes of tuple containing size and the formated key (used for TPM NV storage)
 def RSA_key_export(key : RSA.RsaKey, serialize_size=False):
-    exported_key = key.export_key(format='DER', passphrase=None, pkcs=8, protection='PBKDF2WithHMAC-SHA512AndAES256-CBC', randfunc=get_random)  # type: ignore
+    exported_key = key.export_key(format='DER', passphrase=None, pkcs=8, protection='PBKDF2WithHMAC-SHA512AndAES256-CBC')  # type: ignore
 
     if(serialize_size == True):
         return RSA_key_serialize(exported_key)
@@ -87,7 +87,7 @@ def RSA_key_read(index : int, raw_data=False) -> bytes | None:
 # Generate an ECC key
 def ECC_key_gen() -> ECC.EccKey:
     ECC_CURVE = "Curve25519"    # X25519 curve
-    key = ECC.generate(curve=ECC_CURVE, randfunc=get_random)    # type: ignore
+    key = ECC.generate(curve=ECC_CURVE)    # type: ignore
     return key
 
 
