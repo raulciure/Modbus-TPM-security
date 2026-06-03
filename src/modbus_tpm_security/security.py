@@ -1,10 +1,9 @@
-# module containing functions used for security operations
-
 from Crypto.PublicKey import RSA
 from Crypto.Signature import pss
 from Crypto.Hash import SHA256
 from Crypto.PublicKey import ECC
 from Crypto.Protocol import DH
+from Crypto.Protocol.KDF import HKDF
 from pickle import dumps, loads
 from src.modbus_tpm_security.tpm_security import read_TPM_nv
 
@@ -86,7 +85,7 @@ def RSA_key_read(index : int, raw_data=False) -> bytes | None:
 
 # Generate an ECC key
 def ECC_key_gen() -> ECC.EccKey:
-    ECC_CURVE = "Curve25519"    # X25519 curve
+    ECC_CURVE = "Curve25519"    # X25519 key exchange protocol
     key = ECC.generate(curve=ECC_CURVE)    # type: ignore
     return key
 
@@ -105,8 +104,11 @@ def ECC_public_key_import(encoded_key : bytes) -> ECC.EccKey:
 # Create a common key based on both parties keys
 def ECDHE_key_agreement(own_key : ECC.EccKey, peer_key : ECC.EccKey) -> bytes:
     def kdf(input):
-        return SHA256.new(input)
+        SALT = bytes.fromhex("839afe43f662ad7517481b1399026c248eecf00caa8db56db846245b867e886a")
+        return HKDF(input, key_len=32, salt=SALT, hashmod=SHA256)
 
     session_key = DH.key_agreement(eph_priv=own_key, eph_pub=peer_key, kdf=kdf)
 
-    return session_key.digest()
+    if isinstance(session_key, tuple):
+        raise AssertionError("[ECDHE_key_agreement] session_key is a tuple (i.e. KDF created multiple keys)")
+    return session_key
