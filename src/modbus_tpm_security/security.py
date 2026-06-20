@@ -12,7 +12,7 @@ from src.modbus_tpm_security.tpm_security import read_TPM_nv
 # Return: serialized tuple of message and signature
 def RSA_sign(sign_key : RSA.RsaKey, msg : bytes):
     h = SHA256.new(msg)
-    signature = pss.new(sign_key, rand_func).sign(h)     # type: ignore
+    signature = pss.new(sign_key).sign(h)     # type: ignore
 
     return dumps((msg, signature))
 
