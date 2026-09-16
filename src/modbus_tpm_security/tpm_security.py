@@ -9,7 +9,10 @@ OWN_KEY_NV_INDEX = 0
 
 TPM_API_PATH = "/home/raul/Desktop/Modbus-TCP-Security/TPM/tpm_api.so"
 
-tpm_api_library = ctypes.CDLL(TPM_API_PATH)
+try:
+    tpm_api_library = ctypes.CDLL(TPM_API_PATH)
+except FileNotFoundError:
+    print("--- TPM library not found!\nContinuing with testing capabilites only ---\n")
 
 
 def string_to_bytes(input : str):

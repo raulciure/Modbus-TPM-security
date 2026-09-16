@@ -13,6 +13,7 @@ def parse_args_main(prog_path : str):
     parser.add_argument("--measure-perf", action="store_true", help="Measure performance of the cryptographic operations\nNOTE: This function disables replay resistance and rekeying")
     parser.add_argument("--set-timestamp-tolerance", type=int, default=1, metavar="SECONDS", help="Set custom timestamp tolerance for replay attack resistance, in seconds (default 1)")
     parser.add_argument("--disable-replay-resistance", action="store_true", help="Disable replay attack resistance")
+    parser.add_argument("--use-seq-num-replay-resistance", action="store_true", help="Use sequence numbers instead of timestamps for replay resistance. Must be the same on both devices.")
     parser.add_argument("--set-rekey-interval", type=int, default=600, metavar="SECONDS", help="Set custom rekey interval for forward secrecy support, in seconds (default 600)")
     parser.add_argument("--disable-rekeying", action="store_true", help="Disable periodic rekeying and forward secrecy support")
     parser.add_argument("-v", action="store_true", help="Turn on verbose text level 1")
