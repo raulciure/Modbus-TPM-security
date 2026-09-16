@@ -3,7 +3,7 @@ from src.modbus_tpm_security.sym_cipher import *
 from types import SimpleNamespace
 
 
-args = SimpleNamespace(use_seq_num_replay_resistance = True,
+args = SimpleNamespace(set_replay_resistance = "seq-num",
                        disable_rekeying = True,
                        disable_replay_resistance = None,
                        v = None,

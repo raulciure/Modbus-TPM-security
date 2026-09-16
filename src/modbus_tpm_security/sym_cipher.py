@@ -188,7 +188,6 @@ class SequenceNumbersReplayProcessor:
 class SymCipher:
     __cipher_type : int
     __key : bytes
-    # __timestamp_tolerance : int
     __rekeyer : Rekeyer
     __replay_resistance_processor : TimestampReplayProcessor | SequenceNumbersReplayProcessor
     __debug_flag : int
@@ -213,20 +212,14 @@ class SymCipher:
             else:
                 self.__rekeyer = Rekeyer(args.set_rekey_interval, debug_flag=self.__debug_flag)
 
-            if args.use_seq_num_replay_resistance:
-                self.__replay_resistance_processor = SequenceNumbersReplayProcessor(args, self.__key, self.__cipher_type)
-            else:
+            if args.set_replay_resistance == "timestamp":
                 self.__replay_resistance_processor = TimestampReplayProcessor(args)
-
-            # if args.disable_replay_resistance:
-            #     self.__timestamp_tolerance = -1
-            # else:
-            #     self.__timestamp_tolerance = args.set_timestamp_tolerance
+            else:
+                self.__replay_resistance_processor = SequenceNumbersReplayProcessor(args, self.__key, self.__cipher_type)
 
         else:                               # Case when args is None (external debug/tests)
             self.__rekeyer = RekeyerDisabler()
             self.__replay_resistance_processor = TimestampReplayProcessor(None)
-            # self.__timestamp_tolerance = -1
             self.__debug_flag = 3
 
     def __update_key(self, *, called_before_send : bool):
@@ -237,14 +230,6 @@ class SymCipher:
                 if self.__debug_flag >= 3:
                     print("\t* New symmetric key applied! *")
                     print("\tNew key: ", rekeyer_key.hex(' '))
-
-    # def __get_cipher(self, sym_key : bytes | None = None, nonce : bytes | None = None):
-    #     if (sym_key is None) != (nonce is None):
-    #         raise TypeError("Function must be called with either 0 or 2 arguments!")
-
-    #     if sym_key is None:
-    #         return CipherTypes.get_cipher_object(self.__cipher_type, self.__key, None)
-    #     return CipherTypes.get_cipher_object(self.__cipher_type, sym_key, nonce)
     
     def get_sym_key(self):
         return self.__key.hex(" ")
@@ -252,12 +237,9 @@ class SymCipher:
     def __encrypt_and_digest(self, msg : bytes):
         replay_resistance_data = self.__replay_resistance_processor.get_replay_resistance_data()
 
-        # cipher = self.__get_cipher()
         cipher = self.__replay_resistance_processor.get_cipher(self.__cipher_type, self.__key)
 
         nonce = cipher.nonce
-
-        # timestamp = int(time()).to_bytes(4)
 
         cipher.update(replay_resistance_data)
 
@@ -273,13 +255,11 @@ class SymCipher:
 
         (replay_resistance_data, nonce, ciphertext, MAC_tag) = self.__encrypt_and_digest(msg)
         
-        # enc_data = Formatter.pack(self.__rekeyer.get_send_state(is_reset_msg), nonce, replay_resistance_data, ciphertext, MAC_tag, self.__rekeyer.get_own_public_secret())
         enc_data = self.__replay_resistance_processor.pack_encrypted_data(self.__rekeyer.get_send_state(is_reset_msg), replay_resistance_data, nonce, ciphertext, MAC_tag, self.__rekeyer.get_own_public_secret())
 
         return enc_data
     
     def __decrypt_and_verify(self, msg_replay_resistance_data, nonce, ciphertext, MAC_tag, sym_key : bytes):
-        # cipher = self.__get_cipher(sym_key, nonce)
         cipher = self.__replay_resistance_processor.get_cipher(self.__cipher_type, sym_key, nonce)
 
         try:
