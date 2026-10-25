@@ -7,9 +7,10 @@ from time import sleep
 args = Namespace(
     set_rekey_interval = 5,
     disable_replay_resistance = True,
+    set_replay_resistance = "timestamp",
 
     disable_rekeying = False,
-    debug_option = False,
+    v = 0, vv = 0, vvv=0,
 )
 
 sym_key = get_random_bytes(32)

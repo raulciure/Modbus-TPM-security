@@ -1,4 +1,5 @@
 import ctypes
+from pathlib import Path
 
 
 MAX_RSA_PUB_KEY_BYTES = 512
@@ -7,7 +8,8 @@ MAX_NV_STORAGE_SIZE_BYTES = 1536
 
 OWN_KEY_NV_INDEX = 0
 
-TPM_API_PATH = "/home/raul/Desktop/Modbus-TCP-Security/TPM/tpm_api.so"
+PROJECT_ROOT_PATH = Path(__file__).resolve().parents[2]     # Navigate two levels above current module's containing folder
+TPM_API_PATH = PROJECT_ROOT_PATH / "TPM/tpm_api.so"
 
 try:
     tpm_api_library = ctypes.CDLL(TPM_API_PATH)

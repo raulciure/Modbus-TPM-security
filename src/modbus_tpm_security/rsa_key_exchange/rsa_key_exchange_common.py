@@ -77,7 +77,7 @@ def RSA_public_key_exchange(conn_socket : socket.socket):
         communicator.send(RSA_key_bytes_public_own)             # then sends its public key to peer
         print("Sent own RSA public key!")
 
-    print("Exchange fingerprint:\n", get_keys_fingerprint(RSA_key_bytes_public_own, RSA_key_bytes_public_peer).hex(), "\n")
+    print("Exchange fingerprint:\n\t", get_keys_fingerprint(RSA_key_bytes_public_own, RSA_key_bytes_public_peer).hex(), "\n")
     user_input = input("Confirm pairing? [Y/n]")
     if user_input not in ("Y", " ", ""):
         print("Pairing unsuccessful!")
