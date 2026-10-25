@@ -3,11 +3,11 @@ import socket
 import csv
 from Crypto.Hash import SHA256
 from src.modbus_tpm_security.tpm_security import store_TPM_nv, OWN_KEY_NV_INDEX
-from src.modbus_tpm_security.security import RSA_key_read_and_load, RSA_key_export, RSA_key_serialize
+from src.modbus_tpm_security.security import RSA_key_read_and_load, RSA_key_export, RSA_key_serialize, get_keys_fingerprint
 from src.modbus_tpm_security.netcomm import NetComm
 
 
-PEERS_FILE_PATH = current_script_path = os.path.dirname(os.path.abspath(__file__))
+PEERS_FILE_PATH = os.path.dirname(os.path.abspath(__file__))
 PEERS_FILE_NAME = "peers.csv"
 PEERS_FILE_FULL_PATH = os.path.join(PEERS_FILE_PATH, PEERS_FILE_NAME)
 
@@ -37,7 +37,7 @@ def store_peer_RSA_public_key(peer_public_key_bytes : bytes):
 
     if found_flag == False:     # Public key is not already known
         new_ID = max_ID + 1
-        # Store serialized DER formated peer_public_key in TPM NV memory at next available index
+        # Store serialized DER formatted peer_public_key in TPM NV memory at next available index
         result = store_TPM_nv(RSA_key_serialize(peer_public_key_bytes), new_ID)
         if result == True:
             print("Peer public key successfully stored in TPM NV memory!")
@@ -68,13 +68,19 @@ def RSA_public_key_exchange(conn_socket : socket.socket):
         communicator.send(RSA_key_bytes_public_own)             # host sends its public key to peer
         print("Sent own RSA public key!")
 
-        RSA_key_bytes_public_peer = communicator.receive()      # then recieves the public key from peer
-        print("Recieved peer RSA public key!")
+        RSA_key_bytes_public_peer = communicator.receive()      # then receives the public key from peer
+        print("Received peer RSA public key!")
     else:                               # peer sends the key first
         RSA_key_bytes_public_peer = communicator.receive()      # host receives the public key from peer
-        print("Recieved peer RSA public key!")
+        print("Received peer RSA public key!")
 
         communicator.send(RSA_key_bytes_public_own)             # then sends its public key to peer
         print("Sent own RSA public key!")
+
+    print("Exchange fingerprint:\n", get_keys_fingerprint(RSA_key_bytes_public_own, RSA_key_bytes_public_peer).hex(), "\n")
+    user_input = input("Confirm pairing? [Y/n]")
+    if user_input not in ("Y", " ", ""):
+        print("Pairing unsuccessful!")
+        return
 
     store_peer_RSA_public_key(RSA_key_bytes_public_peer)        # Store peer key in TPM

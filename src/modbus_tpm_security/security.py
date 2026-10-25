@@ -8,6 +8,18 @@ from pickle import dumps, loads
 from src.modbus_tpm_security.tpm_security import read_TPM_nv
 
 
+def get_keys_fingerprint(*keys : bytes) -> bytes:
+    # Convert to standard (canonical) form
+    standard_ordered_keys = sorted(keys)
+
+    data = b''
+
+    for key in standard_ordered_keys:
+        data += len(key).to_bytes(4) + key
+
+    return SHA256.new(data).digest()
+
+
 # Sign message with RSA private key using PKCS1_PSS
 # Return: serialized tuple of message and signature
 def RSA_sign(sign_key : RSA.RsaKey, msg : bytes):
